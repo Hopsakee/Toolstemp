@@ -2,9 +2,9 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
+  # Runs on pushes targeting the default branch or the Pages feature branch
   push:
-    branches: ["main"]
+    branches: ["main", "claude/publish-github-pages-P6dd7"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
