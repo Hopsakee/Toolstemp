@@ -1,5 +1,3 @@
-Hier is de volledige broncode — tik lang op de tekst om te selecteren en kopieer alles:
-
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -568,29 +566,29 @@ async function fetchPlantImage(plant) {
   return null;
 }
 
-async function loadImageCache() {
+function loadImageCache() {
   try {
-    const result = await window.storage.get('imageCache');
-    if (result && result.value) imageCache = JSON.parse(result.value);
+    const value = localStorage.getItem('imageCache');
+    if (value) imageCache = JSON.parse(value);
   } catch (e) { /* empty */ }
 }
 
-async function saveImageCache() {
+function saveImageCache() {
   try {
-    await window.storage.set('imageCache', JSON.stringify(imageCache));
+    localStorage.setItem('imageCache', JSON.stringify(imageCache));
   } catch (e) { /* ignore */ }
 }
 
-async function loadState() {
+function loadState() {
   try {
-    const result = await window.storage.get('findings');
-    if (result && result.value) state = JSON.parse(result.value);
+    const value = localStorage.getItem('findings');
+    if (value) state = JSON.parse(value);
   } catch (e) { /* empty state */ }
 }
 
-async function saveState() {
+function saveState() {
   try {
-    await window.storage.set('findings', JSON.stringify(state));
+    localStorage.setItem('findings', JSON.stringify(state));
   } catch (e) { console.error(e); }
 }
 
@@ -853,8 +851,9 @@ document.getElementById('dialog').addEventListener('click', (e) => {
   if (e.target.id === 'dialog') closeDialog();
 });
 
-(async function init() {
-  await Promise.all([loadState(), loadImageCache()]);
+(function init() {
+  loadState();
+  loadImageCache();
   render();
 })();
 </script>
