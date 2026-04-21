@@ -1,0 +1,862 @@
+Hier is de volledige broncode — tik lang op de tekst om te selecteren en kopieer alles:
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f1e4">
+<title>Plantenpuzzel · Weerribben-Wieden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --paper: #f6f1e4;
+    --paper-dark: #ebe3d0;
+    --paper-darker: #ddd2b8;
+    --ink: #2a3326;
+    --ink-soft: #5a6b55;
+    --moss: #7a9465;
+    --moss-dark: #536b44;
+    --water: #89a3a0;
+    --dotter: #d4a53a;
+    --line: #c4b896;
+    --shadow: 0 2px 12px rgba(42, 51, 38, 0.06);
+  }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  body {
+    background: 
+      radial-gradient(circle at 15% 8%, rgba(122, 148, 101, 0.08), transparent 45%),
+      radial-gradient(circle at 85% 85%, rgba(137, 163, 160, 0.08), transparent 45%),
+      var(--paper);
+  }
+
+  #app {
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 28px 20px calc(48px + env(safe-area-inset-bottom));
+    min-height: 100vh;
+  }
+
+  /* Header */
+  header {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 18px;
+    height: 1px;
+    background: var(--ink-soft);
+  }
+
+  h1 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 46px;
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.015em;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ink-soft);
+    margin-bottom: 22px;
+  }
+
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .progress-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--paper-darker);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--moss);
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 0%;
+  }
+
+  .progress-text {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+  }
+
+  .progress-text strong {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* Plant list */
+  #plantGrid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .category-header {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 24px 0 6px;
+    padding-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 500;
+  }
+
+  .category-header:first-child {
+    margin-top: 4px;
+  }
+
+  .category-header::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .plant-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 18px 4px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
+    transition: padding 0.2s ease;
+  }
+
+  .plant-card:active {
+    padding-left: 10px;
+  }
+
+  .plant-number {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ink-soft);
+    min-width: 28px;
+    font-variant-numeric: lining-nums;
+  }
+
+  .plant-card.found .plant-number {
+    color: var(--moss-dark);
+  }
+
+  .plant-swatch {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08), 0 2px 6px rgba(42,51,38,0.08);
+    background-size: cover;
+    background-position: center;
+  }
+
+  .plant-swatch .ref-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .plant-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .plant-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+  }
+
+  .plant-card.found .plant-name {
+    color: var(--moss-dark);
+  }
+
+  .plant-latin {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--ink-soft);
+    margin-top: 1px;
+  }
+
+  .plant-status {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--moss);
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .plant-card.found .plant-status {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Actions */
+  .actions {
+    margin-top: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .btn {
+    padding: 14px 20px;
+    border-radius: 999px;
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .btn-secondary {
+    background: var(--moss);
+    color: var(--paper);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+
+  /* Dialog */
+  .dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(42, 51, 38, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-end;
+    z-index: 100;
+    padding: 0;
+  }
+
+  .dialog-overlay.hidden {
+    display: none;
+  }
+
+  .dialog-sheet {
+    background: var(--paper);
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 0 0 calc(32px + env(safe-area-inset-bottom));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dialog-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--paper-dark);
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dialog-swatch {
+    width: 100%;
+    height: 220px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .dialog-swatch .ref-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .ref-caption {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 999px;
+    backdrop-filter: blur(4px);
+  }
+
+  .dialog-header {
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    position: relative;
+  }
+
+  .dialog-titles h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+
+  .dialog-latin {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .dialog-hint {
+    margin: 16px 20px 0;
+    padding: 14px 16px;
+    background: var(--paper-dark);
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    border-left: 3px solid var(--moss);
+  }
+
+  .capture-section {
+    margin: 20px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .capture-btn {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .capture-btn input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 0;
+  }
+
+  .capture-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .captured-photo {
+    width: 100%;
+    border-radius: 12px;
+    object-fit: cover;
+    max-height: 240px;
+  }
+
+  .captured-meta {
+    background: var(--paper-dark);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .coord-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  .coord-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    min-width: 36px;
+  }
+
+  .coord-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .coord-value.muted { color: var(--ink-soft); }
+
+  .map-link {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--moss-dark);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="eyebrow">Weerribben-Wieden · 2026</div>
+    <h1>Planten<br>puzzel</h1>
+    <div class="subtitle">Zoek & fotografeer</div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text"><strong id="foundCount">0</strong> / <span id="totalCount">0</span></div>
+    </div>
+  </header>
+
+  <div id="plantGrid"></div>
+
+  <div class="actions">
+    <button class="btn btn-secondary" id="exportBtn">📤 Deel resultaten</button>
+    <button class="btn btn-ghost" id="resetBtn">Opnieuw beginnen</button>
+  </div>
+</div>
+
+<div class="dialog-overlay hidden" id="dialog">
+  <div class="dialog-sheet">
+    <div id="dialogBody"></div>
+  </div>
+</div>
+
+<script>
+const plants = [
+  // Waterplanten
+  { id: 'gele-plomp', name: 'Gele plomp', latin: 'Nuphar lutea', category: 'Waterplanten', color: '#e8c84a', hint: 'Grote gele bloem op het water, ronde drijfbladeren. Te vinden in sloten en vaarten.', wiki: 'Nuphar_lutea' },
+  { id: 'witte-waterlelie', name: 'Witte waterlelie', latin: 'Nymphaea alba', category: 'Waterplanten', color: '#f0ede0', hint: 'Smetteloos witte bloem op het water met veel meeldraden. Beschermde soort.', wiki: 'Nymphaea_alba' },
+  { id: 'waterviolier', name: 'Waterviolier', latin: 'Hottonia palustris', category: 'Waterplanten', color: '#e8b4d0', hint: 'Lichtroze/witte bloemen boven water, geveerd blad onder water. Kwetsbare soort.', wiki: 'Hottonia_palustris' },
+  { id: 'krabbenscheer', name: 'Krabbenscheer', latin: 'Stratiotes aloides', category: 'Waterplanten', color: '#6aab5a', hint: 'Stekelige rozet van bladeren, half onder water. Lijkt op een aloë in het water.', wiki: 'Stratiotes_aloides' },
+  { id: 'groot-blaasjeskruid', name: 'Groot blaasjeskruid', latin: 'Utricularia vulgaris', category: 'Waterplanten', color: '#f0c830', hint: 'Gele snapdraakbloemen boven water. Vleeseter: vangt waterdiertjes in kleine blaasjes.', wiki: 'Utricularia_vulgaris' },
+  // Oeverplanten
+  { id: 'riet', name: 'Riet', latin: 'Phragmites australis', category: 'Oeverplanten', color: '#c8b870', hint: 'Hoog gras met pluimvormige paarsgrijze bloempluim. Dominant in rietlanden.', wiki: 'Phragmites_australis' },
+  { id: 'lisdodde', name: 'Grote lisdodde', latin: 'Typha latifolia', category: 'Oeverplanten', color: '#7a5838', hint: 'Bekend door de bruine worst-vormige zaadkolf. Staat met voeten in het water.', wiki: 'Typha_latifolia' },
+  { id: 'waterzuring', name: 'Waterzuring', latin: 'Rumex hydrolapathum', category: 'Oeverplanten', color: '#b03030', hint: 'Grote plant met lancetvormige bladeren die rood kleuren in de herfst.', wiki: 'Rumex_hydrolapathum' },
+  { id: 'mattenbies', name: 'Mattenbies', latin: 'Schoenoplectus lacustris', category: 'Oeverplanten', color: '#5a8848', hint: 'Ronde, donkergroene stengels zonder bladeren. Groeit in open water.', wiki: 'Schoenoplectus_lacustris' },
+  // Moerasplanten
+  { id: 'moerasvaren', name: 'Moerasvaren', latin: 'Thelypteris palustris', category: 'Moerasplanten', color: '#78a858', hint: 'Lichtgroene varen in vochtige rietlanden. Bladeren twee keer geveerd.', wiki: 'Thelypteris_palustris' },
+  { id: 'wateraardbei', name: 'Wateraardbei', latin: 'Potentilla palustris', category: 'Moerasplanten', color: '#b83060', hint: 'Donkerpurperen bloemen, geveerd blad. Onverwacht donkere kleur voor een aardbei-verwant.', wiki: 'Comarum_palustre' },
+  { id: 'dotterbloem', name: 'Dotterbloem', latin: 'Caltha palustris', category: 'Moerasplanten', color: '#f0c020', hint: 'Felgele bloem vroeg in het voorjaar in natte hooilanden en slootkanten.', wiki: 'Caltha_palustris' },
+  { id: 'moerashertshooi', name: 'Moerashertshooi', latin: 'Hypericum elodes', category: 'Moerasplanten', color: '#e8c830', hint: 'Gele bloemen, grijzig behaarde ronde bladeren. Groeit op drijftillen.', wiki: 'Hypericum_elodes' },
+  { id: 'slangenwortel', name: 'Slangenwortel', latin: 'Calla palustris', category: 'Moerasplanten', color: '#f8f8e8', hint: 'Witte schutblad (spathe) met gele kolf, felrode bessen. Giftig. Zeldzame soort.', wiki: 'Calla_palustris' },
+  // Grasland & ruigte
+  { id: 'echte-koekoeksbloem', name: 'Echte koekoeksbloem', latin: 'Silene flos-cuculi', category: 'Grasland & ruigte', color: '#e870a8', hint: 'Sierlijke roze bloem met diep ingesneden bloemblaadjes. In vochtige hooilanden.', wiki: 'Silene_flos-cuculi' },
+  { id: 'poelruit', name: 'Poelruit', latin: 'Thalictrum flavum', category: 'Grasland & ruigte', color: '#e8e060', hint: 'Geelwit pluimig bloemhoofd, blauwgroen geveerd blad. Kan 1,5 m hoog worden.', wiki: 'Thalictrum_flavum' },
+  { id: 'moerasrolklaver', name: 'Moerasrolklaver', latin: 'Lotus pedunculatus', category: 'Grasland & ruigte', color: '#e0c020', hint: 'Gele klaverachtige bloemen. Heeft holle stengels, anders dan gewone rolklaver.', wiki: 'Lotus_pedunculatus' },
+  // Bijzonder
+  { id: 'koningsvaren', name: 'Koningsvaren', latin: 'Osmunda regalis', category: 'Bijzonder', color: '#7ab858', hint: 'Grootse varen tot 2m hoog met aparte sporenpluim. Beschermd en zeldzaam.', wiki: 'Osmunda_regalis' },
+  { id: 'waterdrieblad', name: 'Waterdrieblad', latin: 'Menyanthes trifoliata', category: 'Bijzonder', color: '#f8f0e0', hint: 'Drie-delig blad, witte gevederde bloemen. Groeit in ondiep water op drijftillen.', wiki: 'Menyanthes_trifoliata' },
+  { id: 'kleine-zonnedauw', name: 'Kleine zonnedauw', latin: 'Drosera intermedia', category: 'Bijzonder', color: '#e85050', hint: 'Vleesetende plant met kleverige rode tentakels op veenmos. Klein maar fascinerend.', wiki: 'Drosera_intermedia' },
+];
+
+let state = {};
+let imageCache = {};
+
+async function fetchPlantImage(plant) {
+  try {
+    const title = plant.wiki;
+    const apiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+    const resp = await fetch(apiUrl);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const url = data.thumbnail?.source;
+    const bigUrl = data.originalimage?.source;
+    if (url) {
+      imageCache[plant.id] = { thumb: url, large: bigUrl || url };
+      saveImageCache();
+      return imageCache[plant.id];
+    }
+  } catch (e) {
+    console.warn('Image fetch failed for', plant.id, e);
+  }
+  return null;
+}
+
+async function loadImageCache() {
+  try {
+    const result = await window.storage.get('imageCache');
+    if (result && result.value) imageCache = JSON.parse(result.value);
+  } catch (e) { /* empty */ }
+}
+
+async function saveImageCache() {
+  try {
+    await window.storage.set('imageCache', JSON.stringify(imageCache));
+  } catch (e) { /* ignore */ }
+}
+
+async function loadState() {
+  try {
+    const result = await window.storage.get('findings');
+    if (result && result.value) state = JSON.parse(result.value);
+  } catch (e) { /* empty state */ }
+}
+
+async function saveState() {
+  try {
+    await window.storage.set('findings', JSON.stringify(state));
+  } catch (e) { console.error(e); }
+}
+
+function render() {
+  const grid = document.getElementById('plantGrid');
+
+  // Group by category, preserving order
+  const categories = [];
+  const grouped = {};
+  plants.forEach((p) => {
+    if (!grouped[p.category]) {
+      grouped[p.category] = [];
+      categories.push(p.category);
+    }
+    grouped[p.category].push(p);
+  });
+
+  let globalIndex = 0;
+  grid.innerHTML = categories.map(cat => {
+    const items = grouped[cat].map(p => {
+      globalIndex++;
+      const found = state[p.id];
+      const cached = imageCache[p.id];
+      return `
+        <button class="plant-card ${found ? 'found' : ''}" data-id="${p.id}">
+          <span class="plant-number">${String(globalIndex).padStart(2, '0')}</span>
+          <span class="plant-swatch" style="background: ${p.color}">
+            ${cached ? `<img class="ref-img" src="${cached.thumb}" alt="" loading="lazy">` : ''}
+          </span>
+          <span class="plant-info">
+            <span class="plant-name">${p.name}</span>
+            <span class="plant-latin">${p.latin}</span>
+          </span>
+          <span class="plant-status">✓</span>
+        </button>
+      `;
+    }).join('');
+    return `<div class="category-header">${cat}</div>${items}`;
+  }).join('');
+
+  grid.querySelectorAll('.plant-card').forEach(card => {
+    card.addEventListener('click', () => openDialog(card.dataset.id));
+  });
+  updateProgress();
+
+  // Fetch missing images in background
+  plants.forEach(async (p) => {
+    if (!imageCache[p.id]) {
+      const img = await fetchPlantImage(p);
+      if (img) {
+        const card = grid.querySelector(`[data-id="${p.id}"] .plant-swatch`);
+        if (card) {
+          card.innerHTML = `<img class="ref-img" src="${img.thumb}" alt="" loading="lazy">`;
+        }
+      }
+    }
+  });
+}
+
+function updateProgress() {
+  const n = Object.keys(state).length;
+  const total = plants.length;
+  document.getElementById('foundCount').textContent = n;
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('progressFill').style.width = `${(n / total) * 100}%`;
+}
+
+function openDialog(id) {
+  const plant = plants.find(p => p.id === id);
+  const entry = state[id];
+  const body = document.getElementById('dialogBody');
+  const cached = imageCache[id];
+
+  body.innerHTML = `
+    <button class="dialog-close" data-action="close" aria-label="Sluiten">✕</button>
+    <div class="dialog-swatch" style="background-color: ${plant.color}20">
+      ${cached ? `<img class="ref-img" src="${cached.large}" alt="Referentiefoto ${plant.name}" onerror="this.src='${cached.thumb}'">` : ''}
+      <a class="ref-caption" href="https://en.wikipedia.org/wiki/${plant.wiki}" target="_blank" rel="noopener">Wikipedia ↗</a>
+    </div>
+    <div class="dialog-header">
+      <div class="dialog-titles">
+        <h2>${plant.name}</h2>
+        <div class="dialog-latin">${plant.latin}</div>
+      </div>
+    </div>
+    <div class="dialog-hint">${plant.hint}</div>
+    <div class="capture-section">
+      ${entry ? renderEntry(entry) : renderCapture(id)}
+    </div>
+  `;
+
+  // Fetch image if not cached
+  if (!cached) {
+    fetchPlantImage(plant).then((img) => {
+      if (img) {
+        const swatch = body.querySelector('.dialog-swatch');
+        if (swatch) {
+          swatch.insertAdjacentHTML('afterbegin',
+            `<img class="ref-img" src="${img.large}" alt="Referentiefoto ${plant.name}" onerror="this.src='${img.thumb}'">`);
+        }
+      }
+    });
+  }
+
+  document.getElementById('dialog').classList.remove('hidden');
+
+  body.querySelector('[data-action="close"]').addEventListener('click', closeDialog);
+  body.querySelector('[data-action="retake"]')?.addEventListener('click', () => {
+    delete state[id];
+    saveState();
+    render();
+    openDialog(id);
+  });
+  body.querySelector('[data-action="delete"]')?.addEventListener('click', () => {
+    if (confirm('Vondst verwijderen?')) {
+      delete state[id];
+      saveState();
+      render();
+      closeDialog();
+    }
+  });
+  body.querySelector('#photoInput')?.addEventListener('change', (e) => handlePhoto(e, id));
+}
+
+function renderCapture(id) {
+  return `
+    <label class="btn btn-primary capture-btn">
+      <input type="file" accept="image/*" capture="environment" id="photoInput">
+      <span>📸 Foto maken</span>
+    </label>
+    <div class="capture-hint">Zet locatie aan voor GPS-coördinaten</div>
+  `;
+}
+
+function renderEntry(entry) {
+  const hasGPS = entry.lat != null;
+  const mapURL = hasGPS ? `https://www.google.com/maps?q=${entry.lat},${entry.lng}` : null;
+  return `
+    <img class="captured-photo" src="${entry.photo}" alt="Vondst">
+    <div class="captured-meta">
+      <div class="coord-row">
+        <span class="coord-label">GPS</span>
+        <span class="coord-value ${hasGPS ? '' : 'muted'}">
+          ${hasGPS ? `${entry.lat.toFixed(5)}, ${entry.lng.toFixed(5)}` : 'geen locatie'}
+        </span>
+      </div>
+      <div class="coord-row">
+        <span class="coord-label">Tijd</span>
+        <span class="coord-value">${new Date(entry.timestamp).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+      </div>
+      ${mapURL ? `<a class="map-link" href="${mapURL}" target="_blank" rel="noopener">Bekijk op kaart →</a>` : ''}
+    </div>
+    <button class="btn btn-ghost" data-action="retake">Opnieuw vastleggen</button>
+    <button class="btn btn-ghost" data-action="delete" style="color: #a85a4a">Verwijderen</button>
+  `;
+}
+
+function closeDialog() {
+  document.getElementById('dialog').classList.add('hidden');
+}
+
+async function handlePhoto(e, id) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const body = document.getElementById('dialogBody');
+  body.innerHTML = '<div class="loading">Foto verwerken</div>';
+
+  try {
+    const photo = await compressImage(file);
+    body.innerHTML = '<div class="loading">Locatie ophalen</div>';
+    const coords = await getGPS();
+
+    state[id] = {
+      photo,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
+      timestamp: Date.now()
+    };
+    await saveState();
+    render();
+    openDialog(id);
+  } catch (err) {
+    alert('Er ging iets mis: ' + err.message);
+    openDialog(id);
+  }
+}
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 900;
+        let { width, height } = img;
+        if (width > height && width > maxDim) {
+          height = (height / width) * maxDim;
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = (width / height) * maxDim;
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.onerror = () => reject(new Error('Kon foto niet laden'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Kon foto niet lezen'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getGPS() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 12000, enableHighAccuracy: true, maximumAge: 60000 }
+    );
+  });
+}
+
+document.getElementById('resetBtn').addEventListener('click', async () => {
+  if (confirm('Alle vondsten wissen?')) {
+    state = {};
+    await saveState();
+    render();
+  }
+});
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const entries = plants
+    .filter(p => state[p.id])
+    .map(p => {
+      const v = state[p.id];
+      const coords = v.lat != null ? `${v.lat.toFixed(5)}, ${v.lng.toFixed(5)}` : 'geen GPS';
+      const time = new Date(v.timestamp).toLocaleString('nl-NL');
+      return `✓ ${p.name}\n   📍 ${coords}\n   🕐 ${time}`;
+    }).join('\n\n');
+
+  const count = Object.keys(state).length;
+  const text = `🌿 Plantenpuzzel Weerribben-Wieden\nApril 2026 · ${count}/${plants.length} gevonden\n\n${entries || '(nog geen vondsten)'}`;
+
+  if (navigator.share) {
+    navigator.share({ text, title: 'Plantenpuzzel resultaten' }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => alert('Resultaten gekopieerd naar klembord!'));
+  } else {
+    alert(text);
+  }
+});
+
+document.getElementById('dialog').addEventListener('click', (e) => {
+  if (e.target.id === 'dialog') closeDialog();
+});
+
+(async function init() {
+  await Promise.all([loadState(), loadImageCache()]);
+  render();
+})();
+</script>
+</body>
+</html>
