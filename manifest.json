@@ -1,0 +1,26 @@
+{
+  "name": "Plantenpuzzel Weerribben-Wieden",
+  "short_name": "Plantenpuzzel",
+  "description": "Zoek en fotografeer 20 bijzondere planten in de Weerribben-Wieden",
+  "start_url": "planten.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f1e4",
+  "theme_color": "#f6f1e4",
+  "orientation": "portrait-primary",
+  "lang": "nl",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

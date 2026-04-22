@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- solid background fills entire canvas (required for maskable) -->
+  <rect width="512" height="512" fill="#f6f1e4"/>
+  <!-- content kept within central 80% safe zone (approx 56–456 x 56–456) -->
+  <!-- stem -->
+  <path d="M256 390 Q256 335 256 210" stroke="#536b44" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <!-- left leaf -->
+  <path d="M256 315 Q212 283 175 246 Q205 305 256 315Z" fill="#7a9465"/>
+  <!-- right leaf -->
+  <path d="M256 268 Q298 234 334 196 Q306 257 256 268Z" fill="#7a9465"/>
+  <!-- top bud -->
+  <path d="M249 210 Q233 174 240 140 Q256 162 272 140 Q279 174 263 210Z" fill="#7a9465"/>
+  <!-- water dots -->
+  <circle cx="224" cy="406" r="8" fill="#89a3a0" opacity="0.55"/>
+  <circle cx="256" cy="412" r="8" fill="#89a3a0" opacity="0.55"/>
+  <circle cx="288" cy="406" r="8" fill="#89a3a0" opacity="0.55"/>
+</svg>

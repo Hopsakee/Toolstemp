@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#f6f1e4"/>
+  <!-- stem -->
+  <path d="M256 400 Q256 340 256 195" stroke="#536b44" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <!-- left leaf -->
+  <path d="M256 310 Q205 275 162 232 Q195 295 256 310Z" fill="#7a9465"/>
+  <!-- right leaf -->
+  <path d="M256 258 Q305 220 346 178 Q315 244 256 258Z" fill="#7a9465"/>
+  <!-- top bud -->
+  <path d="M248 195 Q230 155 238 118 Q256 142 274 118 Q282 155 264 195Z" fill="#7a9465"/>
+  <!-- water dots -->
+  <circle cx="216" cy="418" r="9" fill="#89a3a0" opacity="0.55"/>
+  <circle cx="256" cy="424" r="9" fill="#89a3a0" opacity="0.55"/>
+  <circle cx="296" cy="418" r="9" fill="#89a3a0" opacity="0.55"/>
+</svg>
