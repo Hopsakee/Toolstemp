@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML Annotator</title>
+<style>
+  :root{
+    --bg:#f1f5f9; --panel:#ffffff; --border:#e2e8f0; --text:#0f172a;
+    --muted:#64748b; --accent:#2563eb; --accent-dark:#1d4ed8;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden;}
+
+  /* Top bar */
+  header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);
+    border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0;}
+  header h1{font-size:15px;margin:0;font-weight:700;display:flex;align-items:center;gap:8px;}
+  header h1 .logo{font-size:18px;}
+  .doc-name{font-size:12px;color:var(--muted);margin-left:4px;max-width:240px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;}
+  .spacer{flex:1;}
+  .btn{font-size:12.5px;font-weight:500;border:1px solid var(--border);background:#fff;color:#334155;
+    padding:7px 12px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .btn:hover{background:#f8fafc;border-color:#cbd5e1;}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn.primary:hover{background:var(--accent-dark);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  /* Layout */
+  main{flex:1;display:flex;min-height:0;}
+  #viewer-wrap{flex:1;position:relative;min-width:0;background:#fff;}
+  #viewer{width:100%;height:100%;border:0;background:#fff;}
+  #empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:18px;text-align:center;color:var(--muted);padding:24px;}
+  #empty .big{font-size:46px;}
+  #empty h2{margin:0;color:#334155;font-size:18px;}
+  #empty p{margin:0;font-size:13.5px;max-width:420px;line-height:1.6;}
+
+  /* Sidebar */
+  aside{width:340px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;min-height:0;}
+  .side-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;
+    align-items:center;justify-content:space-between;}
+  .side-head h2{margin:0;font-size:13px;font-weight:600;color:#334155;}
+  .side-head .count{font-size:11px;color:var(--muted);background:#f1f5f9;padding:2px 8px;border-radius:10px;}
+  .side-list{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px;}
+  .side-empty{color:#94a3b8;font-size:12.5px;text-align:center;padding:30px 16px;line-height:1.6;}
+
+  .card{border:1px solid var(--border);border-radius:9px;padding:10px;background:#fff;
+    transition:box-shadow .15s,border-color .15s;cursor:pointer;}
+  .card:hover{box-shadow:0 2px 8px rgba(15,23,42,.07);}
+  .card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.15);}
+  .card-top{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+  .dot{width:13px;height:13px;border-radius:4px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);}
+  .card-quote{font-size:12px;color:#475569;line-height:1.45;flex:1;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .card-del{border:0;background:none;color:#cbd5e1;cursor:pointer;font-size:15px;line-height:1;
+    padding:2px 4px;border-radius:5px;flex-shrink:0;}
+  .card-del:hover{color:#ef4444;background:#fef2f2;}
+  .card textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:7px 8px;
+    font-family:inherit;font-size:12.5px;resize:vertical;min-height:38px;color:#334155;}
+  .card textarea:focus{outline:none;border-color:var(--accent);}
+  .swatches{display:flex;gap:6px;margin-top:8px;align-items:center;}
+  .swatch{width:18px;height:18px;border-radius:5px;cursor:pointer;border:2px solid transparent;}
+  .swatch.sel{border-color:#334155;}
+  .card-time{font-size:10.5px;color:#94a3b8;margin-left:auto;}
+
+  /* Floating selection toolbar */
+  #floattb{position:fixed;display:none;z-index:9999;background:#0f172a;border-radius:9px;
+    padding:6px;gap:6px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.25);}
+  #floattb.show{display:flex;}
+  #floattb .tb-swatch{width:20px;height:20px;border-radius:5px;cursor:pointer;border:2px solid transparent;}
+  #floattb .tb-swatch:hover{border-color:#fff;}
+  #floattb .tb-note{background:#334155;color:#fff;border:0;border-radius:6px;padding:5px 10px;
+    font-size:12px;cursor:pointer;font-weight:500;}
+  #floattb .tb-note:hover{background:#475569;}
+
+  /* Highlight colors (injected into viewer too) */
+  .pa-color-yellow{background:#fde68a;}
+  .pa-color-green{background:#bbf7d0;}
+  .pa-color-blue{background:#bfdbfe;}
+  .pa-color-pink{background:#fbcfe8;}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f172a;
+    color:#fff;padding:9px 16px;border-radius:8px;font-size:12.5px;z-index:10000;opacity:0;
+    transition:opacity .25s;pointer-events:none;}
+  .toast.show{opacity:.95;}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="logo">🖍️</span> HTML Annotator</h1>
+  <span class="doc-name" id="docName"></span>
+  <span class="spacer"></span>
+  <button class="btn primary" id="btnOpen">Open HTML…</button>
+  <button class="btn" id="btnLoadAnn">Load Annotations…</button>
+  <button class="btn" id="btnSaveAnn" disabled>Save Annotations</button>
+  <button class="btn" id="btnMd" disabled>Export Markdown</button>
+  <button class="btn" id="btnHtml" disabled>Export Annotated HTML</button>
+  <input type="file" id="fileHtml" accept=".html,.htm,text/html">
+  <input type="file" id="fileAnn" accept=".json,application/json">
+</header>
+
+<main>
+  <div id="viewer-wrap">
+    <iframe id="viewer" sandbox="allow-same-origin allow-scripts"></iframe>
+    <div id="empty">
+      <div class="big">📄✏️</div>
+      <h2>Open an HTML file to start annotating</h2>
+      <p>Select any text in the document to highlight it and attach a note.
+         Save your annotations as a separate file to reload later, export them as
+         Markdown, or bake them back into the HTML as collapsible personal notes.</p>
+      <button class="btn primary" id="btnOpen2">Open HTML…</button>
+    </div>
+  </div>
+  <aside>
+    <div class="side-head">
+      <h2>Annotations</h2>
+      <span class="count" id="annCount">0</span>
+    </div>
+    <div class="side-list" id="sideList">
+      <div class="side-empty">No annotations yet.<br>Select text in the document to add one.</div>
+    </div>
+  </aside>
+</main>
+
+<div id="floattb">
+  <span class="tb-swatch pa-color-yellow" data-color="yellow"></span>
+  <span class="tb-swatch pa-color-green" data-color="green"></span>
+  <span class="tb-swatch pa-color-blue" data-color="blue"></span>
+  <span class="tb-swatch pa-color-pink" data-color="pink"></span>
+  <button class="tb-note" data-color="yellow">+ Note</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+//==========================================================================
+// State
+//==========================================================================
+let originalHTML = "";      // pristine HTML of the loaded document
+let docTitle = "";
+let docKey = "";            // localStorage key derived from the document
+let annotations = [];       // [{id,start,end,exact,prefix,suffix,color,note,created}]
+let pendingSel = null;      // selection captured awaiting a color choice
+let activeId = null;
+
+const COLORS = ["yellow","green","blue","pink"];
+const COLOR_HEX = {yellow:"#fde68a",green:"#bbf7d0",blue:"#bfdbfe",pink:"#fbcfe8"};
+const COLOR_BORDER = {yellow:"#f59e0b",green:"#16a34a",blue:"#2563eb",pink:"#db2777"};
+const CTX = 40; // chars of prefix/suffix context stored for re-anchoring
+
+const viewer  = document.getElementById('viewer');
+const sideList= document.getElementById('sideList');
+const emptyEl = document.getElementById('empty');
+const floattb = document.getElementById('floattb');
+
+//==========================================================================
+// Helpers: text-node walking and offset math
+//   The wrapping of highlights never adds or removes characters, so a global
+//   character offset over the (script/style-excluded) text is a stable anchor.
+//==========================================================================
+function getTextNodes(root){
+  const doc = root.ownerDocument;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      const tag = n.parentNode && n.parentNode.nodeName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='NOSCRIPT') return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const out=[]; let n;
+  while((n=walker.nextNode())) out.push(n);
+  return out;
+}
+function getFullText(root){ return getTextNodes(root).map(n=>n.nodeValue).join(''); }
+
+// Convert a DOM boundary (node, offset) to a global character offset.
+function globalOffset(root, node, offset){
+  if(node.nodeType !== Node.TEXT_NODE){
+    if(node.childNodes && node.childNodes.length){
+      if(offset >= node.childNodes.length){
+        const c = node.childNodes[node.childNodes.length-1];
+        return globalOffset(root, c, c.nodeType===Node.TEXT_NODE ? c.nodeValue.length : (c.childNodes?c.childNodes.length:0));
+      }
+      return globalOffset(root, node.childNodes[offset], 0);
+    }
+  }
+  const nodes = getTextNodes(root);
+  let total=0;
+  for(const n of nodes){
+    if(n===node) return total + offset;
+    total += n.nodeValue.length;
+  }
+  return total;
+}
+
+// Wrap [start,end) of the document text in <span> highlight(s). Returns true if applied.
+function wrapRange(root, start, end, color, id){
+  const nodes = getTextNodes(root);
+  let total=0; const segs=[];
+  for(const n of nodes){
+    const len=n.nodeValue.length, ns=total, ne=total+len;
+    if(ne>start && ns<end){
+      const a=Math.max(0,start-ns), b=Math.min(len,end-ns);
+      if(b>a) segs.push({node:n,a,b});
+    }
+    total=ne;
+    if(total>=end) break;
+  }
+  // Wrap in reverse so splitting earlier text nodes never disturbs pending segments.
+  for(let i=segs.length-1;i>=0;i--){
+    const s=segs[i];
+    const range=root.ownerDocument.createRange();
+    range.setStart(s.node,s.a); range.setEnd(s.node,s.b);
+    const span=root.ownerDocument.createElement('span');
+    span.className='pa-hl pa-color-'+color;
+    span.setAttribute('data-pa-id', id);
+    try{ range.surroundContents(span); }catch(e){}
+  }
+  return segs.length>0;
+}
+
+// If stored offsets no longer match (different doc revision), re-find by context.
+function reAnchor(a, full){
+  if(full.slice(a.start, a.end) === a.exact) return true;
+  if(!a.exact) return false;
+  let idx = a.prefix ? full.indexOf(a.prefix + a.exact) : -1;
+  if(idx >= 0){ a.start = idx + a.prefix.length; a.end = a.start + a.exact.length; return true; }
+  // fall back to nearest plain occurrence
+  let best=-1, bestDist=Infinity, from=0, p;
+  while((p=full.indexOf(a.exact, from)) !== -1){
+    const d=Math.abs(p-a.start);
+    if(d<bestDist){bestDist=d;best=p;}
+    from=p+1;
+  }
+  if(best>=0){ a.start=best; a.end=best+a.exact.length; return true; }
+  return false;
+}
+
+//==========================================================================
+// Render the viewer from pristine HTML + current annotations
+//==========================================================================
+const VIEWER_CSS = `.pa-hl{border-radius:2px;cursor:pointer;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;transition:filter .1s;}
+  .pa-hl:hover{filter:brightness(.94);}
+  .pa-color-yellow{background:#fde68a;} .pa-color-green{background:#bbf7d0;}
+  .pa-color-blue{background:#bfdbfe;}  .pa-color-pink{background:#fbcfe8;}
+  .pa-flash{animation:paflash .9s;} @keyframes paflash{0%,100%{filter:none}40%{filter:brightness(.8)}}`;
+
+function render(preserveScroll){
+  if(!originalHTML){ return; }
+  const prevY = (preserveScroll && viewer.contentWindow) ? viewer.contentWindow.scrollY : 0;
+  viewer.onload = () => {
+    const doc = viewer.contentDocument;
+    // inject highlight styles
+    const st = doc.createElement('style'); st.textContent = VIEWER_CSS;
+    doc.head ? doc.head.appendChild(st) : doc.documentElement.appendChild(st);
+    // apply highlights (text-length invariant => sequential application is safe)
+    const full = getFullText(doc.body);
+    annotations.forEach(a => { reAnchor(a, full); wrapRange(doc.body, a.start, a.end, a.color, a.id); });
+    attachViewerHandlers(doc);
+    try{ viewer.contentWindow.scrollTo(0, prevY); }catch(e){}
+  };
+  viewer.srcdoc = originalHTML;
+}
+
+function attachViewerHandlers(doc){
+  doc.addEventListener('mouseup', onViewerMouseUp);
+  doc.addEventListener('click', (e)=>{
+    const hl = e.target.closest && e.target.closest('.pa-hl');
+    if(hl){ selectCard(hl.getAttribute('data-pa-id'), true); }
+    else { hideToolbar(); }
+  });
+}
+
+function onViewerMouseUp(){
+  const win = viewer.contentWindow;
+  const sel = win.getSelection();
+  if(!sel || sel.isCollapsed || !sel.toString().trim()){ hideToolbar(); return; }
+  const range = sel.getRangeAt(0);
+  const root = viewer.contentDocument.body;
+  let s = globalOffset(root, range.startContainer, range.startOffset);
+  let e = globalOffset(root, range.endContainer, range.endOffset);
+  if(s>e){ const t=s; s=e; e=t; }
+  const full = getFullText(root);
+  pendingSel = {
+    start:s, end:e,
+    exact: full.slice(s,e),
+    prefix: full.slice(Math.max(0,s-CTX), s),
+    suffix: full.slice(e, e+CTX)
+  };
+  showToolbar(range);
+}
+
+//==========================================================================
+// Floating toolbar
+//==========================================================================
+function showToolbar(range){
+  const r = range.getBoundingClientRect();
+  const f = viewer.getBoundingClientRect();
+  let top = f.top + r.top - 46;
+  let left = f.left + r.left;
+  if(top < 6) top = f.top + r.bottom + 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - 220));
+  floattb.style.top = top + 'px';
+  floattb.style.left = left + 'px';
+  floattb.classList.add('show');
+}
+function hideToolbar(){ floattb.classList.remove('show'); }
+
+floattb.querySelectorAll('.tb-swatch').forEach(sw=>{
+  sw.addEventListener('mousedown', e=>e.preventDefault());
+  sw.addEventListener('click', ()=> commitPending(sw.dataset.color, false));
+});
+floattb.querySelector('.tb-note').addEventListener('mousedown', e=>e.preventDefault());
+floattb.querySelector('.tb-note').addEventListener('click', ()=> commitPending('yellow', true));
+
+function commitPending(color, focusNote){
+  if(!pendingSel) return;
+  const a = Object.assign({
+    id: 'a'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),
+    color, note:'', created: new Date().toISOString()
+  }, pendingSel);
+  annotations.push(a);
+  pendingSel = null;
+  hideToolbar();
+  try{ viewer.contentWindow.getSelection().removeAllRanges(); }catch(e){}
+  render(true);
+  renderSidebar();
+  persist();
+  if(focusNote){
+    const ta = sideList.querySelector('.card[data-id="'+a.id+'"] textarea');
+    if(ta){ ta.scrollIntoView({block:'center'}); ta.focus(); }
+  }
+}
+
+//==========================================================================
+// Sidebar
+//==========================================================================
+function renderSidebar(){
+  document.getElementById('annCount').textContent = annotations.length;
+  if(!annotations.length){
+    sideList.innerHTML = '<div class="side-empty">No annotations yet.<br>Select text in the document to add one.</div>';
+    return;
+  }
+  const sorted = annotations.slice().sort((x,y)=>x.start-y.start);
+  sideList.innerHTML = '';
+  sorted.forEach((a, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'card' + (a.id===activeId?' active':'');
+    card.setAttribute('data-id', a.id);
+
+    const top = document.createElement('div'); top.className='card-top';
+    const dot = document.createElement('span'); dot.className='dot'; dot.style.background=COLOR_HEX[a.color];
+    const quote = document.createElement('div'); quote.className='card-quote'; quote.textContent='“'+a.exact+'”';
+    const del = document.createElement('button'); del.className='card-del'; del.title='Delete'; del.textContent='×';
+    top.append(dot, quote, del);
+
+    const ta = document.createElement('textarea');
+    ta.placeholder = 'Add a note… (Markdown supported)';
+    ta.value = a.note || '';
+
+    const sw = document.createElement('div'); sw.className='swatches';
+    COLORS.forEach(c=>{
+      const s=document.createElement('span'); s.className='swatch pa-color-'+c+(c===a.color?' sel':'');
+      s.dataset.color=c; sw.appendChild(s);
+    });
+    const time=document.createElement('span'); time.className='card-time';
+    time.textContent = (a.created||'').slice(0,10);
+    sw.appendChild(time);
+
+    card.append(top, ta, sw);
+    sideList.appendChild(card);
+
+    // events
+    card.addEventListener('click', e=>{
+      if(e.target.closest('textarea')||e.target.closest('.swatch')||e.target.closest('.card-del')) return;
+      selectCard(a.id, true);
+    });
+    del.addEventListener('click', ()=> deleteAnnotation(a.id));
+    ta.addEventListener('input', ()=>{ a.note=ta.value; persist(); });
+    sw.querySelectorAll('.swatch').forEach(s=>{
+      s.addEventListener('click', ()=>{
+        a.color=s.dataset.color; render(true); renderSidebar(); persist();
+      });
+    });
+  });
+}
+
+function selectCard(id, scrollViewer){
+  activeId = id;
+  renderSidebar();
+  const card = sideList.querySelector('.card[data-id="'+id+'"]');
+  if(card) card.scrollIntoView({block:'nearest'});
+  if(scrollViewer){
+    const span = viewer.contentDocument.querySelector('.pa-hl[data-pa-id="'+id+'"]');
+    if(span){ span.scrollIntoView({block:'center'}); span.classList.add('pa-flash');
+      setTimeout(()=>span.classList.remove('pa-flash'),900); }
+  }
+}
+
+function deleteAnnotation(id){
+  annotations = annotations.filter(a=>a.id!==id);
+  if(activeId===id) activeId=null;
+  render(true); renderSidebar(); persist();
+}
+
+//==========================================================================
+// Open / Load
+//==========================================================================
+function loadHTMLString(text, name){
+  originalHTML = text;
+  const m = text.match(/<title[^>]*>([^<]*)<\/title>/i);
+  docTitle = (m && m[1].trim()) || name || 'Untitled';
+  document.getElementById('docName').textContent = name || docTitle;
+  docKey = hashStr(text);
+  annotations = [];
+  activeId = null;
+
+  // auto-restore previously saved annotations for this exact document
+  const saved = localStorage.getItem(docKey);
+  if(saved){
+    try{ const p=JSON.parse(saved); if(p && Array.isArray(p.annotations)) annotations=p.annotations; }catch(e){}
+    if(annotations.length) toast('Restored '+annotations.length+' saved annotation(s)');
+  }
+
+  emptyEl.style.display='none';
+  ['btnSaveAnn','btnMd','btnHtml'].forEach(id=>document.getElementById(id).disabled=false);
+  render(false);
+  renderSidebar();
+}
+
+function applyLoadedAnnotations(data){
+  if(!originalHTML){ toast('Open an HTML document first'); return; }
+  let list = Array.isArray(data) ? data : (data && data.annotations);
+  if(!Array.isArray(list)){ toast('Unrecognized annotations file'); return; }
+  // sanitize / ensure ids
+  annotations = list.map(a=>Object.assign({
+    id:'a'+Math.random().toString(36).slice(2), color:'yellow', note:'', created:'', exact:'', prefix:'', suffix:'', start:0, end:0
+  }, a));
+  activeId=null;
+  render(true); renderSidebar(); persist();
+  toast('Loaded '+annotations.length+' annotation(s)');
+}
+
+//==========================================================================
+// Exports
+//==========================================================================
+function serialize(){
+  return { version:1, docTitle, savedAt:new Date().toISOString(), annotations };
+}
+function download(filename, content, type){
+  const blob = new Blob([content], {type:type||'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+function baseName(){ return (docTitle||'document').replace(/[^\w\-]+/g,'_').slice(0,60); }
+
+function buildMarkdown(){
+  const sorted = annotations.slice().sort((x,y)=>x.start-y.start);
+  let md = '# Annotations — '+docTitle+'\n\n';
+  md += '_Exported '+new Date().toISOString().slice(0,10)+' · '+sorted.length+' annotation(s)_\n\n';
+  sorted.forEach((a,i)=>{
+    md += '## '+(i+1)+'. '+a.color.charAt(0).toUpperCase()+a.color.slice(1)+' highlight\n\n';
+    md += '> '+String(a.exact).replace(/\n/g,'\n> ')+'\n\n';
+    if(a.note && a.note.trim()) md += a.note.trim()+'\n\n';
+    md += '---\n\n';
+  });
+  return md;
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// tiny, safe markdown subset for the embedded notes
+function mdToHtml(s){
+  let h = esc(s);
+  h = h.replace(/\[([^\]]+)\]\((https?:[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  h = h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  h = h.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h = h.replace(/\n/g,'<br>');
+  return h;
+}
+
+const EXPORT_CSS = `
+/* ===== Personal annotations (added by HTML Annotator) ===== */
+.pa-hl{border-radius:2px;-webkit-box-decoration-break:clone;box-decoration-break:clone;}
+.pa-color-yellow{background:#fde68a;} .pa-color-green{background:#bbf7d0;}
+.pa-color-blue{background:#bfdbfe;}  .pa-color-pink{background:#fbcfe8;}
+details.pa-annotation{display:inline-block;vertical-align:text-bottom;margin:0 2px 0 4px;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;
+  border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:7px;
+  background:#f8fafc;padding:2px 9px;max-width:480px;}
+details.pa-annotation.pa-edge-yellow{border-left-color:#f59e0b;}
+details.pa-annotation.pa-edge-green{border-left-color:#16a34a;}
+details.pa-annotation.pa-edge-blue{border-left-color:#2563eb;}
+details.pa-annotation.pa-edge-pink{border-left-color:#db2777;}
+details.pa-annotation>summary{cursor:pointer;color:#475569;font-weight:600;list-style:none;
+  user-select:none;outline:none;}
+details.pa-annotation>summary::-webkit-details-marker{display:none;}
+details.pa-annotation>summary::before{content:'▸ ';color:#94a3b8;}
+details.pa-annotation[open]>summary::before{content:'▾ ';}
+.pa-annotation-body{padding:7px 2px 4px;color:#334155;line-height:1.55;
+  border-top:1px solid #e2e8f0;margin-top:5px;}
+.pa-annotation-body code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12px;}
+`;
+
+function buildAnnotatedHTML(){
+  const doc = new DOMParser().parseFromString(originalHTML, 'text/html');
+  const full = getFullText(doc.body);
+  // Pass 1: wrap every highlight (adds no text => offsets stay valid across annotations)
+  annotations.forEach(a=>{ reAnchor(a, full); wrapRange(doc.body, a.start, a.end, a.color, a.id); });
+  // Pass 2: insert collapsible <details> for notes, located by id (text changes now are fine)
+  annotations.forEach(a=>{
+    if(!a.note || !a.note.trim()) return;
+    const spans = doc.querySelectorAll('.pa-hl[data-pa-id="'+a.id+'"]');
+    if(!spans.length) return;
+    const last = spans[spans.length-1];
+    const det = doc.createElement('details');
+    det.className = 'pa-annotation pa-edge-'+a.color;
+    const sum = doc.createElement('summary'); sum.textContent = 'Note';
+    const body = doc.createElement('div'); body.className='pa-annotation-body';
+    body.innerHTML = mdToHtml(a.note.trim());
+    det.append(sum, body);
+    last.after(det);
+  });
+  const style = doc.createElement('style'); style.textContent = EXPORT_CSS;
+  (doc.head || doc.documentElement).appendChild(style);
+  return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+}
+
+//==========================================================================
+// Persistence + misc
+//==========================================================================
+function persist(){ if(docKey){ try{ localStorage.setItem(docKey, JSON.stringify(serialize())); }catch(e){} } }
+function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return 'pa_'+(h>>>0)+'_'+s.length; }
+
+let toastTimer;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+//==========================================================================
+// Wire up controls
+//==========================================================================
+const fileHtml=document.getElementById('fileHtml'), fileAnn=document.getElementById('fileAnn');
+document.getElementById('btnOpen').onclick = ()=>fileHtml.click();
+document.getElementById('btnOpen2').onclick = ()=>fileHtml.click();
+document.getElementById('btnLoadAnn').onclick = ()=>fileAnn.click();
+
+fileHtml.onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>loadHTMLString(r.result, f.name); r.readAsText(f);
+  fileHtml.value='';
+};
+fileAnn.onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ applyLoadedAnnotations(JSON.parse(r.result)); }catch(err){ toast('Invalid JSON file'); } };
+  r.readAsText(f); fileAnn.value='';
+};
+
+document.getElementById('btnSaveAnn').onclick = ()=>{
+  if(!annotations.length){ toast('No annotations to save'); return; }
+  download(baseName()+'.annotations.json', JSON.stringify(serialize(),null,2), 'application/json');
+};
+document.getElementById('btnMd').onclick = ()=>{
+  if(!annotations.length){ toast('No annotations to export'); return; }
+  download(baseName()+'.annotations.md', buildMarkdown(), 'text/markdown');
+};
+document.getElementById('btnHtml').onclick = ()=>{
+  if(!originalHTML){ return; }
+  download(baseName()+'.annotated.html', buildAnnotatedHTML(), 'text/html');
+};
+
+// hide toolbar on outside interaction
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') hideToolbar(); });
+window.addEventListener('resize', hideToolbar);
+window.addEventListener('mousedown', e=>{ if(!floattb.contains(e.target)) { /* viewer clicks handled inside */ } });
+</script>
+</body>
+</html>
