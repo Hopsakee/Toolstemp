@@ -77,6 +77,16 @@
   #floattb .tb-note{background:#334155;color:#fff;border:0;border-radius:6px;padding:5px 10px;
     font-size:12px;cursor:pointer;font-weight:500;}
   #floattb .tb-note:hover{background:#475569;}
+  #floattb .tb-x{background:none;border:0;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;
+    padding:2px 6px;}
+  #floattb .tb-x:hover{color:#fff;}
+  /* Touch devices: anchor as a bottom action bar, clear of the native menu */
+  #floattb.bottom{top:auto!important;left:50%!important;bottom:18px;transform:translateX(-50%);
+    padding:10px 12px;gap:12px;border-radius:14px;flex-wrap:wrap;justify-content:center;
+    max-width:calc(100vw - 24px);}
+  #floattb.bottom .tb-swatch{width:32px;height:32px;}
+  #floattb.bottom .tb-note{padding:9px 16px;font-size:14px;}
+  #floattb.bottom .tb-x{font-size:22px;padding:4px 10px;}
 
   /* Highlight colors (injected into viewer too) */
   .pa-color-yellow{background:#fde68a;}
@@ -134,6 +144,7 @@
   <span class="tb-swatch pa-color-blue" data-color="blue"></span>
   <span class="tb-swatch pa-color-pink" data-color="pink"></span>
   <button class="tb-note" data-color="yellow">+ Note</button>
+  <button class="tb-x" title="Dismiss">×</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -270,17 +281,24 @@ function render(preserveScroll){
   viewer.srcdoc = originalHTML;
 }
 
+let selTimer = null;
 function attachViewerHandlers(doc){
-  doc.addEventListener('mouseup', onViewerMouseUp);
+  // Desktop fires mouseup; touch devices need selectionchange/touchend since
+  // mouseup is unreliable and the native selection menu intercepts gestures.
+  doc.addEventListener('mouseup', scheduleSelCheck);
+  doc.addEventListener('touchend', scheduleSelCheck);
+  doc.addEventListener('selectionchange', scheduleSelCheck);
   doc.addEventListener('click', (e)=>{
     const hl = e.target.closest && e.target.closest('.pa-hl');
     if(hl){ selectCard(hl.getAttribute('data-pa-id'), true); }
-    else { hideToolbar(); }
   });
 }
 
-function onViewerMouseUp(){
+function scheduleSelCheck(){ clearTimeout(selTimer); selTimer = setTimeout(evaluateSelection, 220); }
+
+function evaluateSelection(){
   const win = viewer.contentWindow;
+  if(!win) return;
   const sel = win.getSelection();
   if(!sel || sel.isCollapsed || !sel.toString().trim()){ hideToolbar(); return; }
   const range = sel.getRangeAt(0);
@@ -288,6 +306,7 @@ function onViewerMouseUp(){
   let s = globalOffset(root, range.startContainer, range.startOffset);
   let e = globalOffset(root, range.endContainer, range.endOffset);
   if(s>e){ const t=s; s=e; e=t; }
+  if(e<=s){ hideToolbar(); return; }
   const full = getFullText(root);
   pendingSel = {
     start:s, end:e,
@@ -301,25 +320,43 @@ function onViewerMouseUp(){
 //==========================================================================
 // Floating toolbar
 //==========================================================================
+const IS_TOUCH = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
 function showToolbar(range){
-  const r = range.getBoundingClientRect();
-  const f = viewer.getBoundingClientRect();
-  let top = f.top + r.top - 46;
-  let left = f.left + r.left;
-  if(top < 6) top = f.top + r.bottom + 8;
-  left = Math.max(8, Math.min(left, window.innerWidth - 220));
-  floattb.style.top = top + 'px';
-  floattb.style.left = left + 'px';
+  if(IS_TOUCH){
+    // Fixed bar at the bottom — clear of the native selection menu near the text.
+    floattb.classList.add('bottom');
+  } else {
+    floattb.classList.remove('bottom');
+    const r = range.getBoundingClientRect();
+    const f = viewer.getBoundingClientRect();
+    let top = f.top + r.top - 46;
+    let left = f.left + r.left;
+    if(top < 6) top = f.top + r.bottom + 8;
+    left = Math.max(8, Math.min(left, window.innerWidth - 240));
+    floattb.style.top = top + 'px';
+    floattb.style.left = left + 'px';
+  }
   floattb.classList.add('show');
 }
 function hideToolbar(){ floattb.classList.remove('show'); }
 
+// On desktop, stop mousedown from collapsing the selection before the click handler.
+// On touch we let the selection collapse and rely on the captured pendingSel instead
+// (preventing default on touchstart can cancel the synthesized click).
+function keepSel(el){ el.addEventListener('mousedown', e=>e.preventDefault()); }
 floattb.querySelectorAll('.tb-swatch').forEach(sw=>{
-  sw.addEventListener('mousedown', e=>e.preventDefault());
+  keepSel(sw);
   sw.addEventListener('click', ()=> commitPending(sw.dataset.color, false));
 });
-floattb.querySelector('.tb-note').addEventListener('mousedown', e=>e.preventDefault());
-floattb.querySelector('.tb-note').addEventListener('click', ()=> commitPending('yellow', true));
+const tbNote = floattb.querySelector('.tb-note');
+keepSel(tbNote);
+tbNote.addEventListener('click', ()=> commitPending('yellow', true));
+const tbX = floattb.querySelector('.tb-x');
+keepSel(tbX);
+tbX.addEventListener('click', ()=>{
+  hideToolbar(); pendingSel=null;
+  try{ viewer.contentWindow.getSelection().removeAllRanges(); }catch(e){}
+});
 
 function commitPending(color, focusNote){
   if(!pendingSel) return;
