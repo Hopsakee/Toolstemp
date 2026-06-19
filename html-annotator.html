@@ -4,113 +4,458 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HTML Annotator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#f1f5f9; --panel:#ffffff; --border:#e2e8f0; --text:#0f172a;
-    --muted:#64748b; --accent:#2563eb; --accent-dark:#1d4ed8;
+  :root {
+    --hdr-bg:      #111827;
+    --hdr-border:  #1f2d3d;
+    --hdr-text:    #f9fafb;
+    --hdr-muted:   #6b7280;
+
+    --bg:          #f0ede8;
+    --panel:       #fafaf8;
+    --border:      #e5e0d8;
+    --text:        #1a1714;
+    --muted:       #78716c;
+
+    --accent:      #d97706;
+    --accent-dark: #b45309;
+    --accent-light:#fef3c7;
+
+    --c-yellow: #fde68a;
+    --c-green:  #bbf7d0;
+    --c-blue:   #bfdbfe;
+    --c-pink:   #fbcfe8;
   }
-  *{box-sizing:border-box;}
-  html,body{height:100%;margin:0;}
-  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden;}
 
-  /* Top bar */
-  header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);
-    border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0;}
-  header h1{font-size:15px;margin:0;font-weight:700;display:flex;align-items:center;gap:8px;}
-  header h1 .logo{font-size:18px;}
-  .doc-name{font-size:12px;color:var(--muted);margin-left:4px;max-width:240px;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap;}
-  .spacer{flex:1;}
-  .btn{font-size:12.5px;font-weight:500;border:1px solid var(--border);background:#fff;color:#334155;
-    padding:7px 12px;border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap;}
-  .btn:hover{background:#f8fafc;border-color:#cbd5e1;}
-  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .btn.primary:hover{background:var(--accent-dark);}
-  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-  /* Layout */
-  main{flex:1;display:flex;min-height:0;}
-  #viewer-wrap{flex:1;position:relative;min-width:0;background:#fff;}
-  #viewer{width:100%;height:100%;border:0;background:#fff;}
-  #empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;gap:18px;text-align:center;color:var(--muted);padding:24px;}
-  #empty .big{font-size:46px;}
-  #empty h2{margin:0;color:#334155;font-size:18px;}
-  #empty p{margin:0;font-size:13.5px;max-width:420px;line-height:1.6;}
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    height: 52px;
+    background: var(--hdr-bg);
+    border-bottom: 1px solid var(--hdr-border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
 
-  /* Sidebar */
-  aside{width:340px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border);
-    display:flex;flex-direction:column;min-height:0;}
-  .side-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;
-    align-items:center;justify-content:space-between;}
-  .side-head h2{margin:0;font-size:13px;font-weight:600;color:#334155;}
-  .side-head .count{font-size:11px;color:var(--muted);background:#f1f5f9;padding:2px 8px;border-radius:10px;}
-  .side-list{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px;}
-  .side-empty{color:#94a3b8;font-size:12.5px;text-align:center;padding:30px 16px;line-height:1.6;}
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: var(--accent);
+    border-radius: 7px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .logo-mark h1 {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--hdr-text);
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
 
-  .card{border:1px solid var(--border);border-radius:9px;padding:10px;background:#fff;
-    transition:box-shadow .15s,border-color .15s;cursor:pointer;}
-  .card:hover{box-shadow:0 2px 8px rgba(15,23,42,.07);}
-  .card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(37,99,235,.15);}
-  .card-top{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
-  .dot{width:13px;height:13px;border-radius:4px;flex-shrink:0;border:1px solid rgba(0,0,0,.12);}
-  .card-quote{font-size:12px;color:#475569;line-height:1.45;flex:1;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-  .card-del{border:0;background:none;color:#cbd5e1;cursor:pointer;font-size:15px;line-height:1;
-    padding:2px 4px;border-radius:5px;flex-shrink:0;}
-  .card-del:hover{color:#ef4444;background:#fef2f2;}
-  .card textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:7px 8px;
-    font-family:inherit;font-size:12.5px;resize:vertical;min-height:38px;color:#334155;}
-  .card textarea:focus{outline:none;border-color:var(--accent);}
-  .swatches{display:flex;gap:6px;margin-top:8px;align-items:center;}
-  .swatch{width:18px;height:18px;border-radius:5px;cursor:pointer;border:2px solid transparent;}
-  .swatch.sel{border-color:#334155;}
-  .card-time{font-size:10.5px;color:#94a3b8;margin-left:auto;}
+  .doc-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--hdr-muted);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-left: 1px solid #2a3a4e;
+    padding-left: 12px;
+    margin-left: 2px;
+    letter-spacing: 0.02em;
+  }
 
-  /* Floating selection toolbar */
-  #floattb{position:fixed;display:none;z-index:9999;background:#0f172a;border-radius:9px;
-    padding:6px;gap:6px;align-items:center;box-shadow:0 6px 24px rgba(0,0,0,.25);}
-  #floattb.show{display:flex;}
-  #floattb .tb-swatch{width:20px;height:20px;border-radius:5px;cursor:pointer;border:2px solid transparent;}
-  #floattb .tb-swatch:hover{border-color:#fff;}
-  #floattb .tb-note{background:#334155;color:#fff;border:0;border-radius:6px;padding:5px 10px;
-    font-size:12px;cursor:pointer;font-weight:500;}
-  #floattb .tb-note:hover{background:#475569;}
-  #floattb .tb-x{background:none;border:0;color:#94a3b8;font-size:18px;line-height:1;cursor:pointer;
-    padding:2px 6px;}
-  #floattb .tb-x:hover{color:#fff;}
-  /* Touch devices: anchor as a bottom action bar, clear of the native menu */
-  #floattb.bottom{top:auto!important;left:50%!important;bottom:18px;transform:translateX(-50%);
-    padding:10px 12px;gap:12px;border-radius:14px;flex-wrap:wrap;justify-content:center;
-    max-width:calc(100vw - 24px);}
-  #floattb.bottom .tb-swatch{width:32px;height:32px;}
-  #floattb.bottom .tb-note{padding:9px 16px;font-size:14px;}
-  #floattb.bottom .tb-x{font-size:22px;padding:4px 10px;}
+  .spacer { flex: 1; }
 
-  /* Highlight colors (injected into viewer too) */
-  .pa-color-yellow{background:#fde68a;}
-  .pa-color-green{background:#bbf7d0;}
-  .pa-color-blue{background:#bfdbfe;}
-  .pa-color-pink{background:#fbcfe8;}
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid #2a3a4e;
+    background: transparent;
+    color: #9ca3af;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { background: #1e2d3d; border-color: #3d5168; color: var(--hdr-text); }
+  .btn.primary {
+    background: var(--accent);
+    color: #1c0e00;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  .btn:disabled { opacity: .3; cursor: not-allowed; }
 
-  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f172a;
-    color:#fff;padding:9px 16px;border-radius:8px;font-size:12.5px;z-index:10000;opacity:0;
-    transition:opacity .25s;pointer-events:none;}
-  .toast.show{opacity:.95;}
-  input[type=file]{display:none;}
+  /* ── Layout ── */
+  main { flex: 1; display: flex; min-height: 0; }
+
+  #viewer-wrap {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+    background: #fff;
+  }
+  #viewer { width: 100%; height: 100%; border: 0; background: #fff; display: block; }
+
+  /* ── Empty state ── */
+  #empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+    padding: 24px;
+    background: #fff;
+  }
+  .empty-icon {
+    width: 72px;
+    height: 72px;
+    background: var(--accent-light);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+  #empty h2 {
+    margin: 0;
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  #empty p {
+    margin: 0;
+    font-size: 13.5px;
+    max-width: 380px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+  #empty .btn.primary {
+    background: var(--accent);
+    color: #1c0e00;
+    border-color: var(--accent);
+  }
+  #empty .btn.primary:hover {
+    background: var(--accent-dark);
+    border-color: var(--accent-dark);
+    color: #fff;
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .side-head {
+    padding: 14px 16px 13px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .side-head h2 {
+    margin: 0;
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-light);
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  .side-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .side-list::-webkit-scrollbar { width: 3px; }
+  .side-list::-webkit-scrollbar-track { background: transparent; }
+  .side-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .side-empty {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-style: italic;
+    font-size: 15px;
+    color: #a8a29e;
+    text-align: center;
+    padding: 44px 16px;
+    line-height: 1.75;
+  }
+
+  /* ── Annotation cards ── */
+  /*
+   * Left border carries the highlight color as a physical margin-tab marker.
+   * The dot element is removed; color identity lives in the border alone.
+   */
+  .card {
+    border: 1px solid var(--border);
+    border-left-width: 3px;
+    border-radius: 7px;
+    padding: 10px 12px;
+    background: #fff;
+    cursor: pointer;
+    position: relative;
+    transition: box-shadow .15s, border-color .15s;
+  }
+  .card:hover { box-shadow: 0 2px 10px rgba(26,23,20,.07); }
+  .card.active {
+    border-top-color: var(--accent);
+    border-right-color: var(--accent);
+    border-bottom-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(217,119,6,.18);
+  }
+  .card[data-color="yellow"] { border-left-color: #d97706; }
+  .card[data-color="green"]  { border-left-color: #16a34a; }
+  .card[data-color="blue"]   { border-left-color: #2563eb; }
+  .card[data-color="pink"]   { border-left-color: #db2777; }
+
+  .card-quote {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: #57534e;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 8px;
+    padding-right: 22px;
+  }
+
+  .card-del {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 0;
+    background: none;
+    color: #d4cfca;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color .12s, background .12s;
+  }
+  .card-del:hover { color: #ef4444; background: #fef2f2; }
+
+  .card textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 36px;
+    color: var(--text);
+    background: var(--panel);
+    transition: border-color .12s;
+  }
+  .card textarea:focus { outline: none; border-color: var(--accent); }
+  .card textarea::placeholder { color: #c2bdb8; font-style: italic; }
+
+  .swatches {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .swatch {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform .1s;
+  }
+  .swatch:hover { transform: scale(1.2); }
+  .swatch.sel { border-color: #44403c; }
+
+  .card-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: #c2bdb8;
+    margin-left: auto;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Floating selection toolbar ── */
+  #floattb {
+    position: fixed;
+    display: none;
+    z-index: 9999;
+    background: #18120e;
+    border-radius: 10px;
+    padding: 7px 8px;
+    gap: 6px;
+    align-items: center;
+    box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04);
+  }
+  #floattb.show { display: flex; }
+
+  .tb-sep { width: 1px; height: 16px; background: #2e231c; flex-shrink: 0; }
+
+  #floattb .tb-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color .1s, transform .1s;
+  }
+  #floattb .tb-swatch:hover { border-color: rgba(255,255,255,.55); transform: scale(1.1); }
+  #floattb .tb-note {
+    background: var(--accent);
+    color: #1c0e00;
+    border: 0;
+    border-radius: 6px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.02em;
+    transition: background .12s, color .12s;
+  }
+  #floattb .tb-note:hover { background: var(--accent-dark); color: #fff; }
+  #floattb .tb-x {
+    background: none;
+    border: 0;
+    color: #5a4f48;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 5px;
+    transition: color .12s;
+  }
+  #floattb .tb-x:hover { color: #b0a9a4; }
+
+  /* Touch: anchor as bottom action bar */
+  #floattb.bottom {
+    top: auto !important;
+    left: 50% !important;
+    bottom: 18px;
+    transform: translateX(-50%);
+    padding: 10px 14px;
+    gap: 12px;
+    border-radius: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 24px);
+  }
+  #floattb.bottom .tb-swatch { width: 30px; height: 30px; }
+  #floattb.bottom .tb-note { padding: 8px 16px; font-size: 13px; }
+  #floattb.bottom .tb-x { font-size: 22px; padding: 4px 8px; }
+
+  /* ── Highlight colors (also injected into viewer) ── */
+  .pa-color-yellow { background: var(--c-yellow); }
+  .pa-color-green  { background: var(--c-green); }
+  .pa-color-blue   { background: var(--c-blue); }
+  .pa-color-pink   { background: var(--c-pink); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #18120e;
+    color: #f9fafb;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity .25s;
+    pointer-events: none;
+    border: 1px solid #2e231c;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.01em;
+  }
+  .toast.show { opacity: .97; }
+
+  input[type=file] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
+
 <header>
-  <h1><span class="logo">🖍️</span> HTML Annotator</h1>
+  <div class="logo-mark">
+    <span class="logo-badge">🖍️</span>
+    <h1>HTML Annotator</h1>
+  </div>
   <span class="doc-name" id="docName"></span>
   <span class="spacer"></span>
   <button class="btn primary" id="btnOpen">Open HTML…</button>
-  <button class="btn" id="btnLoadAnn">Load Annotations…</button>
-  <button class="btn" id="btnSaveAnn" disabled>Save Annotations</button>
+  <button class="btn" id="btnLoadAnn">Load annotations…</button>
+  <button class="btn" id="btnSaveAnn" disabled>Save annotations</button>
   <button class="btn" id="btnMd" disabled>Export Markdown</button>
-  <button class="btn" id="btnHtml" disabled>Export Annotated HTML</button>
+  <button class="btn" id="btnHtml" disabled>Export annotated HTML</button>
   <input type="file" id="fileHtml" accept=".html,.htm,text/html">
   <input type="file" id="fileAnn" accept=".json,application/json">
 </header>
@@ -119,14 +464,13 @@
   <div id="viewer-wrap">
     <iframe id="viewer" sandbox="allow-same-origin allow-scripts"></iframe>
     <div id="empty">
-      <div class="big">📄✏️</div>
-      <h2>Open an HTML file to start annotating</h2>
-      <p>Select any text in the document to highlight it and attach a note.
-         Save your annotations as a separate file to reload later, export them as
-         Markdown, or bake them back into the HTML as collapsible personal notes.</p>
-      <button class="btn primary" id="btnOpen2">Open HTML…</button>
+      <div class="empty-icon">📄</div>
+      <h2>Open a document to begin</h2>
+      <p>Load any HTML file, then select text to highlight and add notes. Annotations save automatically — export them as Markdown or bake them back into the HTML.</p>
+      <button class="btn primary" id="btnOpen2" style="margin-top:4px;">Open HTML…</button>
     </div>
   </div>
+
   <aside>
     <div class="side-head">
       <h2>Annotations</h2>
@@ -140,9 +484,10 @@
 
 <div id="floattb">
   <span class="tb-swatch pa-color-yellow" data-color="yellow"></span>
-  <span class="tb-swatch pa-color-green" data-color="green"></span>
-  <span class="tb-swatch pa-color-blue" data-color="blue"></span>
-  <span class="tb-swatch pa-color-pink" data-color="pink"></span>
+  <span class="tb-swatch pa-color-green"  data-color="green"></span>
+  <span class="tb-swatch pa-color-blue"   data-color="blue"></span>
+  <span class="tb-swatch pa-color-pink"   data-color="pink"></span>
+  <div class="tb-sep"></div>
   <button class="tb-note" data-color="yellow">+ Note</button>
   <button class="tb-x" title="Dismiss">×</button>
 </div>
@@ -388,31 +733,39 @@ function renderSidebar(){
   }
   const sorted = annotations.slice().sort((x,y)=>x.start-y.start);
   sideList.innerHTML = '';
-  sorted.forEach((a, idx)=>{
+  sorted.forEach((a)=>{
     const card = document.createElement('div');
     card.className = 'card' + (a.id===activeId?' active':'');
     card.setAttribute('data-id', a.id);
+    card.setAttribute('data-color', a.color);
 
-    const top = document.createElement('div'); top.className='card-top';
-    const dot = document.createElement('span'); dot.className='dot'; dot.style.background=COLOR_HEX[a.color];
-    const quote = document.createElement('div'); quote.className='card-quote'; quote.textContent='“'+a.exact+'”';
-    const del = document.createElement('button'); del.className='card-del'; del.title='Delete'; del.textContent='×';
-    top.append(dot, quote, del);
+    const quote = document.createElement('div');
+    quote.className = 'card-quote';
+    quote.textContent = '“'+a.exact+'”';
+
+    const del = document.createElement('button');
+    del.className = 'card-del';
+    del.title = 'Delete annotation';
+    del.textContent = '×';
 
     const ta = document.createElement('textarea');
     ta.placeholder = 'Add a note… (Markdown supported)';
     ta.value = a.note || '';
 
-    const sw = document.createElement('div'); sw.className='swatches';
+    const sw = document.createElement('div');
+    sw.className = 'swatches';
     COLORS.forEach(c=>{
-      const s=document.createElement('span'); s.className='swatch pa-color-'+c+(c===a.color?' sel':'');
-      s.dataset.color=c; sw.appendChild(s);
+      const s = document.createElement('span');
+      s.className = 'swatch pa-color-'+c+(c===a.color?' sel':'');
+      s.dataset.color = c;
+      sw.appendChild(s);
     });
-    const time=document.createElement('span'); time.className='card-time';
+    const time = document.createElement('span');
+    time.className = 'card-time';
     time.textContent = (a.created||'').slice(0,10);
     sw.appendChild(time);
 
-    card.append(top, ta, sw);
+    card.append(quote, del, ta, sw);
     sideList.appendChild(card);
 
     // events
@@ -424,7 +777,9 @@ function renderSidebar(){
     ta.addEventListener('input', ()=>{ a.note=ta.value; persist(); });
     sw.querySelectorAll('.swatch').forEach(s=>{
       s.addEventListener('click', ()=>{
-        a.color=s.dataset.color; render(true); renderSidebar(); persist();
+        a.color = s.dataset.color;
+        card.setAttribute('data-color', a.color);
+        render(true); renderSidebar(); persist();
       });
     });
   });
@@ -589,7 +944,7 @@ function toast(msg){
 // Wire up controls
 //==========================================================================
 const fileHtml=document.getElementById('fileHtml'), fileAnn=document.getElementById('fileAnn');
-document.getElementById('btnOpen').onclick = ()=>fileHtml.click();
+document.getElementById('btnOpen').onclick  = ()=>fileHtml.click();
 document.getElementById('btnOpen2').onclick = ()=>fileHtml.click();
 document.getElementById('btnLoadAnn').onclick = ()=>fileAnn.click();
 
@@ -621,7 +976,6 @@ document.getElementById('btnHtml').onclick = ()=>{
 // hide toolbar on outside interaction
 window.addEventListener('keydown', e=>{ if(e.key==='Escape') hideToolbar(); });
 window.addEventListener('resize', hideToolbar);
-window.addEventListener('mousedown', e=>{ if(!floattb.contains(e.target)) { /* viewer clicks handled inside */ } });
 </script>
 </body>
 </html>
