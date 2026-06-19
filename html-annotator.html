@@ -637,10 +637,34 @@ function attachViewerHandlers(doc){
   doc.addEventListener('touchend', scheduleSelCheck);
   doc.addEventListener('selectionchange', scheduleSelCheck);
   doc.addEventListener('click', (e)=>{
+    // Links inside the srcdoc viewer would otherwise navigate the iframe
+    // itself (relative hrefs resolve against this page's URL), reloading the
+    // annotator inside its own viewer. Keep the reader on the document instead.
+    const link = e.target.closest && e.target.closest('a[href]');
+    if(link){
+      const href = link.getAttribute('href') || '';
+      if(href.startsWith('#')){
+        // In-document anchor (e.g. a table-of-contents link): scroll the viewer.
+        e.preventDefault();
+        const id = href.slice(1);
+        let target = null;
+        try{ target = id && (doc.getElementById(id) || doc.querySelector('a[name="'+CSS.escape(id)+'"]')); }catch(_){}
+        if(target) target.scrollIntoView({behavior: reduceMotion()?'auto':'smooth', block:'start'});
+        return;
+      }
+      // Absolute link: open in a new tab rather than replacing the document.
+      // Relative links are only meaningful at the document's original location,
+      // which we don't have, so we decline them instead of opening dead tabs.
+      e.preventDefault();
+      if(/^(https?:)?\/\//i.test(href) || /^mailto:/i.test(href)) window.open(link.href, '_blank', 'noopener');
+      else toast('That link is relative to the original document and can’t be opened here');
+      return;
+    }
     const hl = e.target.closest && e.target.closest('.pa-hl');
     if(hl){ selectCard(hl.getAttribute('data-pa-id'), true); }
   });
 }
+function reduceMotion(){ return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
 
 function scheduleSelCheck(){ clearTimeout(selTimer); selTimer = setTimeout(evaluateSelection, 220); }
 
