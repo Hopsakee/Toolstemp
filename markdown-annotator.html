@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annoteer — markdown review tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4f1ea;
+    --ink: #1a1814;
+    --ink-soft: #4a463e;
+    --ink-faint: #87807218;
+    --accent: #b8472c;
+    --accent-soft: #b8472c22;
+    --warn: #d97706;
+    --warn-soft: #f5d76e55;
+    --danger: #c0392b;
+    --danger-soft: #e74c3c1f;
+    --success: #2d7a4f;
+    --rule: #1a181420;
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter Tight', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--paper); color: var(--ink);
+    font-family: var(--serif); font-size: 17px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  body {
+    background-image:
+      radial-gradient(circle at 25% 15%, #00000004 0%, transparent 50%),
+      radial-gradient(circle at 75% 85%, #00000005 0%, transparent 50%);
+    min-height: 100vh; padding-bottom: 80px;
+  }
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 24px 48px 20px;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    background: rgba(244, 241, 234, 0.94);
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(8px);
+    gap: 24px; flex-wrap: wrap;
+  }
+  .masthead-left { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
+  .eyebrow {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
+  }
+  .masthead h1 {
+    font-family: var(--serif); font-weight: 500; font-style: italic;
+    font-size: 26px; letter-spacing: -0.01em; line-height: 1.1;
+    font-variation-settings: "opsz" 144;
+  }
+  .reviewer-input {
+    font-family: var(--sans); font-size: 12px;
+    border: none; border-bottom: 1px solid var(--rule);
+    background: transparent; padding: 4px 0; margin-top: 2px;
+    color: var(--ink); outline: none; width: 200px;
+  }
+  .reviewer-input:focus { border-bottom-color: var(--accent); }
+  .reviewer-input::placeholder { color: var(--ink-soft); opacity: 0.6; font-style: italic; }
+  .masthead-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--sans); font-size: 12px; letter-spacing: 0.06em;
+    text-transform: uppercase; font-weight: 500;
+    padding: 9px 14px; border: 1px solid var(--ink);
+    background: transparent; color: var(--ink); cursor: pointer;
+    transition: all 0.15s ease; white-space: nowrap;
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+  .btn.primary:hover { background: var(--ink); border-color: var(--ink); }
+  .btn.ghost { border-color: var(--rule); color: var(--ink-soft); }
+  .file-status {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 10px; margin-top: 4px;
+  }
+  .file-pill {
+    padding: 2px 8px; background: var(--accent-soft); color: var(--accent);
+    border-radius: 100px; letter-spacing: 0.04em;
+  }
+
+  .welcome {
+    max-width: 640px; margin: 80px auto 0; padding: 0 48px;
+    text-align: center;
+  }
+  .welcome h2 {
+    font-family: var(--serif); font-weight: 400; font-size: 36px;
+    letter-spacing: -0.02em; margin-bottom: 12px;
+    font-variation-settings: "opsz" 144;
+  }
+  .welcome .eyebrow { display: block; margin-bottom: 12px; }
+  .welcome p.lede {
+    font-family: var(--sans); font-size: 15px; color: var(--ink-soft);
+    line-height: 1.6; margin-bottom: 32px;
+  }
+  .dropzone {
+    border: 2px dashed var(--rule); border-radius: 4px;
+    padding: 48px 24px; cursor: pointer; transition: all 0.2s;
+    background: rgba(255, 255, 255, 0.4); margin-bottom: 16px;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent); background: var(--accent-soft);
+  }
+  .dropzone .icon {
+    font-family: var(--serif); font-style: italic;
+    font-size: 56px; color: var(--accent); display: block;
+    margin-bottom: 12px; line-height: 1;
+  }
+  .dropzone-text {
+    font-family: var(--sans); font-size: 14px; color: var(--ink); font-weight: 500;
+  }
+  .dropzone-hint {
+    font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
+    margin-top: 4px; font-style: italic;
+  }
+  .json-loader {
+    font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
+    margin-top: 24px;
+  }
+  .json-loader a {
+    color: var(--accent); text-decoration: underline; cursor: pointer;
+    text-underline-offset: 2px;
+  }
+  .pending-json {
+    font-family: var(--mono); font-size: 11px; color: var(--success);
+    margin-top: 8px;
+  }
+  .clear-pending {
+    color: var(--danger); cursor: pointer; margin-left: 8px;
+    text-decoration: underline;
+  }
+  .welcome-footer {
+    margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--rule);
+    font-family: var(--sans); font-size: 11px; color: var(--ink-soft);
+    line-height: 1.6; text-align: left;
+  }
+
+  .layout {
+    max-width: 1400px; margin: 0 auto;
+    padding: 40px 48px;
+    display: grid; grid-template-columns: 1fr 380px;
+    gap: 56px; align-items: start;
+  }
+  .doc { max-width: 720px; font-size: 17px; line-height: 1.7; }
+  .doc h1 {
+    font-family: var(--serif); font-weight: 400;
+    font-size: 44px; line-height: 1.05; letter-spacing: -0.02em;
+    margin-bottom: 12px; font-variation-settings: "opsz" 144;
+  }
+  .doc h2 {
+    font-family: var(--serif); font-weight: 500; font-size: 26px;
+    margin-top: 48px; margin-bottom: 14px; line-height: 1.2;
+    letter-spacing: -0.01em; font-variation-settings: "opsz" 36;
+  }
+  .doc h2::before {
+    content: "§"; color: var(--accent); font-style: italic;
+    margin-right: 10px; font-weight: 400; font-size: 22px; vertical-align: 2px;
+  }
+  .doc h3 {
+    font-family: var(--sans); font-weight: 600; font-size: 14px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    margin-top: 32px; margin-bottom: 12px; color: var(--ink);
+  }
+  .doc h4 {
+    font-family: var(--sans); font-weight: 600; font-size: 13px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    margin-top: 24px; margin-bottom: 10px; color: var(--ink-soft);
+  }
+  .doc p { margin-bottom: 14px; }
+  .doc ul, .doc ol { margin: 14px 0 18px; padding-left: 24px; }
+  .doc ul li { margin-bottom: 8px; list-style: none; position: relative; }
+  .doc ul li::before { content: "—"; position: absolute; left: -24px; color: var(--accent); }
+  .doc ol li { margin-bottom: 8px; }
+  .doc strong { font-weight: 600; }
+  .doc em { font-style: italic; }
+  .doc blockquote {
+    border-left: 3px solid var(--accent); padding: 8px 0 8px 20px;
+    margin: 22px 0; font-style: italic; color: var(--ink-soft); font-size: 16px;
+  }
+  .doc blockquote p { margin-bottom: 8px; }
+  .doc blockquote p:last-child { margin-bottom: 0; }
+  .doc code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--ink-faint); padding: 1px 6px; border-radius: 2px;
+  }
+  .doc pre {
+    background: #ffffff; border: 1px solid var(--rule);
+    padding: 18px 22px; margin: 22px 0; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    color: var(--ink); border-radius: 2px;
+  }
+  .doc pre code { background: transparent; padding: 0; font-size: inherit; }
+  .doc hr { border: none; height: 1px; background: var(--rule); margin: 40px 0; }
+  .doc a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  .annotatable { position: relative; }
+  .para-num {
+    position: absolute; left: -56px; top: 4px; width: 40px;
+    text-align: right; font-family: var(--mono); font-size: 10px;
+    color: var(--ink-soft); opacity: 0.5; user-select: none; pointer-events: none;
+  }
+  @media (max-width: 900px) { .para-num { display: none; } }
+
+  .hl-comment {
+    background: var(--warn-soft); cursor: pointer; padding: 1px 0;
+    border-bottom: 1px dotted var(--warn); transition: background 0.15s;
+  }
+  .hl-comment:hover, .hl-comment.active { background: #f5d76e; }
+  .hl-suggest {
+    color: var(--ink-soft); text-decoration: line-through;
+    text-decoration-color: var(--danger); cursor: pointer;
+    background: var(--danger-soft); padding: 1px 0;
+    transition: background 0.15s;
+  }
+  .hl-suggest:hover, .hl-suggest.active { background: #e74c3c33; }
+  .hl-replacement {
+    color: var(--success); font-style: italic;
+    margin-left: 4px; font-size: 0.9em; font-family: var(--sans); font-weight: 500;
+  }
+  .hl-num {
+    font-family: var(--mono); font-size: 10px; color: var(--accent);
+    background: var(--paper); border: 1px solid var(--accent);
+    border-radius: 50%; min-width: 18px; height: 18px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: 4px; vertical-align: super; font-weight: 500;
+  }
+
+  .sidebar {
+    position: sticky; top: 120px; max-height: calc(100vh - 140px);
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sidebar-header {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
+    padding-bottom: 12px; border-bottom: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .count { font-family: var(--mono); color: var(--accent); font-size: 13px; }
+  .annotations {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+    gap: 10px; padding-right: 4px; padding-bottom: 8px;
+  }
+  .annotations::-webkit-scrollbar { width: 6px; }
+  .annotations::-webkit-scrollbar-track { background: transparent; }
+  .annotations::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+  .annotation-card {
+    background: #ffffff; border: 1px solid var(--rule);
+    padding: 12px 14px; border-radius: 2px; transition: all 0.15s;
+  }
+  .annotation-card:hover { border-color: var(--accent); }
+  .annotation-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .annotation-card .header {
+    display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;
+    gap: 8px;
+  }
+  .annotation-card .num-kind { display: flex; align-items: center; gap: 6px; }
+  .annotation-card .num {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    font-weight: 500; letter-spacing: 0.05em;
+  }
+  .annotation-card .kind-pill {
+    font-family: var(--sans); font-size: 9px; letter-spacing: 0.06em;
+    padding: 1px 6px; border-radius: 100px; font-weight: 600;
+    text-transform: uppercase;
+  }
+  .annotation-card .kind-pill.comment { background: var(--warn-soft); color: var(--warn); }
+  .annotation-card .kind-pill.suggestion { background: var(--danger-soft); color: var(--danger); }
+  .annotation-card .author {
+    font-family: var(--sans); font-size: 10px; color: var(--ink-soft);
+    letter-spacing: 0.04em; font-style: italic;
+  }
+  .annotation-card .location {
+    font-family: var(--mono); font-size: 10px; color: var(--ink-soft);
+    margin-bottom: 4px; opacity: 0.7;
+  }
+  .annotation-card .quote {
+    font-family: var(--serif); font-style: italic; font-size: 13px;
+    color: var(--ink-soft); margin: 6px 0 8px;
+    padding-left: 10px; border-left: 2px solid var(--warn-soft);
+    line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; cursor: pointer;
+  }
+  .annotation-card .quote.struck {
+    text-decoration: line-through; text-decoration-color: var(--danger);
+    border-left-color: var(--danger-soft);
+  }
+  .annotation-card textarea {
+    width: 100%; border: 1px solid var(--rule); background: #fafafa;
+    font-family: var(--sans); font-size: 13px; line-height: 1.5;
+    color: var(--ink); resize: vertical; min-height: 38px;
+    padding: 6px 8px; outline: none; margin-top: 6px;
+    border-radius: 2px;
+  }
+  .annotation-card textarea:focus { border-color: var(--accent); background: #fff; }
+  .annotation-card textarea.replacement-input {
+    font-family: var(--mono); font-size: 12px;
+    background: #fff8f3; border-color: var(--accent-soft);
+  }
+  .annotation-card textarea::placeholder {
+    color: var(--ink-soft); font-style: italic; opacity: 0.6;
+  }
+  .annotation-card textarea:disabled { color: var(--ink-soft); opacity: 0.8; background: #fafafa; }
+  .annotation-card .field-label {
+    font-family: var(--sans); font-size: 9px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft);
+    font-weight: 600; margin-top: 8px;
+  }
+  .annotation-card .actions {
+    display: flex; gap: 8px; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--rule);
+  }
+  .annotation-card .actions button {
+    font-family: var(--sans); font-size: 10px; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 8px;
+    border: 1px solid var(--rule); background: transparent;
+    cursor: pointer; color: var(--ink-soft); font-weight: 500;
+  }
+  .annotation-card .actions button:hover { border-color: var(--ink); color: var(--ink); }
+  .annotation-card .actions button.delete:hover { border-color: var(--danger); color: var(--danger); }
+  .empty-state {
+    text-align: center; padding: 36px 16px;
+    color: var(--ink-soft); font-style: italic; font-size: 13px; line-height: 1.6;
+  }
+  .empty-state .icon {
+    font-family: var(--serif); font-size: 32px; font-style: italic;
+    color: var(--accent); margin-bottom: 10px; display: block;
+  }
+  .selection-popup {
+    position: absolute; display: none; z-index: 100;
+    background: var(--ink); padding: 4px; border-radius: 3px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    user-select: none; transform: translateX(-50%); gap: 2px;
+  }
+  .selection-popup::after {
+    content: ''; position: absolute; bottom: -5px; left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--ink); border-bottom: none;
+  }
+  .selection-popup button {
+    background: transparent; color: var(--paper); border: none;
+    padding: 6px 12px; font-family: var(--sans); font-size: 12px;
+    font-weight: 500; letter-spacing: 0.04em; cursor: pointer;
+    border-radius: 2px; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .selection-popup button:hover { background: var(--accent); }
+  .selection-popup .divider {
+    width: 1px; background: var(--paper); opacity: 0.2; margin: 4px 0;
+  }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--ink); color: var(--paper);
+    padding: 12px 20px; border-radius: 2px;
+    font-family: var(--sans); font-size: 13px; letter-spacing: 0.04em;
+    z-index: 200; transition: transform 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2); max-width: 90%;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--danger); }
+  .general-notes {
+    background: #ffffff; border: 1px solid var(--rule);
+    padding: 14px; border-radius: 2px;
+  }
+  .general-notes label {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-soft);
+    font-weight: 500; display: block; margin-bottom: 8px;
+  }
+  .general-notes textarea {
+    width: 100%; border: none; background: transparent;
+    font-family: var(--sans); font-size: 13px; line-height: 1.55;
+    color: var(--ink); resize: vertical; min-height: 70px; outline: none;
+  }
+  .general-notes textarea::placeholder {
+    color: var(--ink-soft); font-style: italic; opacity: 0.6;
+  }
+  .help-banner {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    padding: 12px 16px; margin-bottom: 28px;
+    font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--ink);
+  }
+  .help-banner strong { font-weight: 600; }
+  .help-banner kbd {
+    font-family: var(--mono); background: var(--paper);
+    border: 1px solid var(--rule); padding: 1px 5px;
+    border-radius: 2px; font-size: 11px;
+  }
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-family: var(--sans); font-size: 11px; color: var(--ink-soft);
+    margin-top: 6px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 14px; height: 8px; display: inline-block; }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; padding: 24px; gap: 24px; }
+    .sidebar { position: static; max-height: none; }
+    .masthead { padding: 16px 20px; }
+    .doc h1 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="welcome" class="welcome">
+  <span class="eyebrow">Datalab · Annoteer</span>
+  <h2>Annoteer een markdown-document</h2>
+  <p class="lede">Sleep een markdown-bestand naar het vlak hieronder om te beginnen. Tekstwijzigingen en opmerkingen blijven lokaal in de browser tot je ze exporteert.</p>
+
+  <div class="dropzone" id="dropzone">
+    <span class="icon">¶</span>
+    <div class="dropzone-text">Sleep een .md-bestand hierheen</div>
+    <div class="dropzone-hint">of klik om te bladeren · .md, .markdown, .txt</div>
+  </div>
+  <input type="file" id="mdFileWelcome" accept=".md,.markdown,.txt" style="display:none">
+
+  <div class="json-loader">
+    Heb je al annotaties van een eerdere ronde? <a id="loadJsonWelcome">Laad eerst een .json</a>
+    <div id="pendingJson" class="pending-json" style="display:none;"></div>
+  </div>
+  <input type="file" id="jsonFileWelcome" accept=".json" style="display:none">
+
+  <div class="welcome-footer">
+    <strong>Twee soorten annotaties</strong> — selecteer tekst en kies <em>Opmerking</em> voor vragen of feedback, of <em>Vervangen</em> voor tekstwijzigingen.<br>
+    <strong>Drie exports</strong> — annotaties als JSON (om terug te sturen), feedback-rapport, of een gewijzigde markdown waarin alle wijzigingen verwerkt zijn en opmerkingen inline staan als <code>[[auteur » tekst]]</code>.
+  </div>
+</div>
+
+<header class="masthead" id="masthead" style="display:none;">
+  <div class="masthead-left">
+    <span class="eyebrow">Datalab · Annoteer</span>
+    <h1 id="docTitle">Document</h1>
+    <input type="text" class="reviewer-input" id="reviewer" placeholder="Jouw naam (voor de export)">
+    <div class="file-status">
+      <span class="file-pill" id="mdPill">document.md</span>
+    </div>
+  </div>
+  <div class="masthead-right">
+    <button class="btn ghost" id="changeMdBtn" title="Ander markdown-bestand laden (annotaties gaan verloren)">↺ Ander document</button>
+    <button class="btn ghost" id="loadJsonBtn">↑ Annotaties (.json)</button>
+    <button class="btn" id="saveJsonBtn">↓ Annotaties (.json)</button>
+    <button class="btn" id="exportMdBtn">↓ Rapport</button>
+    <button class="btn primary" id="exportRevisedBtn">↓ Gewijzigde .md</button>
+  </div>
+</header>
+
+<input type="file" id="jsonFile" accept=".json" style="display:none">
+<input type="file" id="mdFileChange" accept=".md,.markdown,.txt" style="display:none">
+
+<div class="layout" id="layout" style="display:none;">
+  <main class="doc" id="doc">
+    <div class="help-banner">
+      <strong>Twee soorten annotaties:</strong> selecteer tekst en kies <kbd>Opmerking</kbd> voor vragen of feedback, of <kbd>Vervangen</kbd> voor tekstwijzigingen.
+      <div class="legend">
+        <span class="legend-item"><span class="legend-swatch" style="background: var(--warn-soft); border-bottom: 1px dotted var(--warn);"></span> Opmerking</span>
+        <span class="legend-item"><span class="legend-swatch" style="background: var(--danger-soft); text-decoration: line-through;">tekst</span> Vervangen</span>
+      </div>
+    </div>
+    <div id="docContent"></div>
+  </main>
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span>Annotaties</span>
+      <span class="count" id="count">0</span>
+    </div>
+    <div class="annotations" id="annotations">
+      <div class="empty-state" id="emptyState">
+        <span class="icon">"</span>
+        Selecteer tekst in het document om je eerste annotatie toe te voegen.
+      </div>
+    </div>
+    <div class="general-notes">
+      <label for="generalNotes">Algemene opmerkingen</label>
+      <textarea id="generalNotes" placeholder="Overkoepelende feedback, vragen, of vervolgstappen..."></textarea>
+    </div>
+  </aside>
+</div>
+
+<div class="selection-popup" id="popup">
+  <button id="popupComment">✎ Opmerking</button>
+  <div class="divider"></div>
+  <button id="popupSuggest">⇄ Vervangen</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  let annotations = [];
+  let nextId = 1;
+  let documentMarkdown = '';
+  let documentTitle = 'Document';
+  let mdFilename = 'document.md';
+  let currentBlocks = [];
+  let pendingJsonData = null;
+  let currentRange = null;
+
+  const welcomeEl = document.getElementById('welcome');
+  const mastheadEl = document.getElementById('masthead');
+  const layoutEl = document.getElementById('layout');
+  const dropzone = document.getElementById('dropzone');
+  const mdFileWelcome = document.getElementById('mdFileWelcome');
+  const mdFileChange = document.getElementById('mdFileChange');
+  const jsonFileWelcome = document.getElementById('jsonFileWelcome');
+  const jsonFileMain = document.getElementById('jsonFile');
+  const loadJsonWelcomeLink = document.getElementById('loadJsonWelcome');
+  const pendingJsonEl = document.getElementById('pendingJson');
+  const docContent = document.getElementById('docContent');
+  const docTitleEl = document.getElementById('docTitle');
+  const mdPillEl = document.getElementById('mdPill');
+  const popup = document.getElementById('popup');
+  const annotationsEl = document.getElementById('annotations');
+  const emptyState = document.getElementById('emptyState');
+  const countEl = document.getElementById('count');
+  const generalNotes = document.getElementById('generalNotes');
+  const toast = document.getElementById('toast');
+  const reviewerInput = document.getElementById('reviewer');
+
+  reviewerInput.value = localStorage.getItem('annoteer_reviewer') || '';
+  reviewerInput.addEventListener('input', () => {
+    localStorage.setItem('annoteer_reviewer', reviewerInput.value);
+  });
+
+  function showToast(msg, isError) {
+    toast.textContent = msg;
+    toast.classList.toggle('error', !!isError);
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function renderInline(text) {
+    let s = escapeHtml(text);
+    s = s.replace(/`([^`]+)`/g, (m, c) => `<code>${c}</code>`);
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+    s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+      (m, txt, url) => `<a href="${url}" target="_blank" rel="noopener">${txt}</a>`);
+    return s;
+  }
+
+  function parseMarkdown(md) {
+    md = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = md.split('\n');
+    const blocks = [];
+    let i = 0;
+    let paraCounter = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (/^```/.test(line)) {
+        i++;
+        const codeLines = [];
+        while (i < lines.length && !/^```/.test(lines[i])) { codeLines.push(lines[i]); i++; }
+        if (i < lines.length) i++;
+        paraCounter++;
+        blocks.push({ type: 'pre', id: `p-${paraCounter}`,
+          html: `<pre data-pid="p-${paraCounter}" class="annotatable"><code>${escapeHtml(codeLines.join('\n'))}</code></pre>` });
+        continue;
+      }
+      const h = line.match(/^(#{1,6})\s+(.+)$/);
+      if (h) {
+        const level = h[1].length;
+        const text = h[2].trim();
+        paraCounter++;
+        blocks.push({ type: `h${level}`, id: `p-${paraCounter}`, level: level, headingText: text,
+          html: `<h${level} data-pid="p-${paraCounter}" class="annotatable">${renderInline(text)}</h${level}>` });
+        i++; continue;
+      }
+      if (/^(\s*[-*_]){3,}\s*$/.test(line) && line.trim().length >= 3) {
+        blocks.push({ type: 'hr', id: null, html: '<hr>' }); i++; continue;
+      }
+      if (/^>\s?/.test(line)) {
+        const quoteLines = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) { quoteLines.push(lines[i].replace(/^>\s?/, '')); i++; }
+        paraCounter++;
+        const inner = quoteLines.map(l => renderInline(l)).join('<br>');
+        blocks.push({ type: 'blockquote', id: `p-${paraCounter}`,
+          html: `<blockquote data-pid="p-${paraCounter}" class="annotatable"><p>${inner}</p></blockquote>` });
+        continue;
+      }
+      if (/^[-*+]\s+/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^[-*+]\s+/.test(lines[i])) {
+          const itemLines = [lines[i].replace(/^[-*+]\s+/, '')]; i++;
+          while (i < lines.length && /^ {2,}\S/.test(lines[i])) { itemLines.push(lines[i].replace(/^ +/, '')); i++; }
+          items.push(itemLines.join(' '));
+        }
+        paraCounter++;
+        const lis = items.map(it => `<li>${renderInline(it)}</li>`).join('');
+        blocks.push({ type: 'ul', id: `p-${paraCounter}`,
+          html: `<ul data-pid="p-${paraCounter}" class="annotatable">${lis}</ul>` });
+        continue;
+      }
+      if (/^\d+\.\s+/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+          const itemLines = [lines[i].replace(/^\d+\.\s+/, '')]; i++;
+          while (i < lines.length && /^ {2,}\S/.test(lines[i])) { itemLines.push(lines[i].replace(/^ +/, '')); i++; }
+          items.push(itemLines.join(' '));
+        }
+        paraCounter++;
+        const lis = items.map(it => `<li>${renderInline(it)}</li>`).join('');
+        blocks.push({ type: 'ol', id: `p-${paraCounter}`,
+          html: `<ol data-pid="p-${paraCounter}" class="annotatable">${lis}</ol>` });
+        continue;
+      }
+      if (line.trim() === '') { i++; continue; }
+      const paraLines = [];
+      while (i < lines.length && lines[i].trim() !== '' &&
+             !/^(#{1,6}\s|>|```|[-*+]\s|\d+\.\s)/.test(lines[i]) &&
+             !/^(\s*[-*_]){3,}\s*$/.test(lines[i])) {
+        paraLines.push(lines[i]); i++;
+      }
+      if (paraLines.length > 0) {
+        paraCounter++;
+        blocks.push({ type: 'p', id: `p-${paraCounter}`,
+          html: `<p data-pid="p-${paraCounter}" class="annotatable">${renderInline(paraLines.join(' '))}</p>` });
+      }
+    }
+    return blocks;
+  }
+
+  function getSectionPath(blocks, pid) {
+    const path = [];
+    const idx = blocks.findIndex(b => b.id === pid);
+    if (idx === -1) return path;
+    const levelsSeen = {};
+    let minLevel = 7;
+    for (let i = idx - 1; i >= 0; i--) {
+      const b = blocks[i];
+      if (b.level && b.level < minLevel) { levelsSeen[b.level] = b.headingText; minLevel = b.level; }
+    }
+    const self = blocks[idx];
+    if (self.level) levelsSeen[self.level] = self.headingText;
+    for (let l = 1; l <= 6; l++) { if (levelsSeen[l]) path.push({ level: l, text: levelsSeen[l] }); }
+    return path;
+  }
+
+  function renderDocument(md) {
+    documentMarkdown = md;
+    currentBlocks = parseMarkdown(md);
+    const firstH1 = currentBlocks.find(b => b.type === 'h1');
+    documentTitle = firstH1 ? firstH1.headingText : mdFilename.replace(/\.(md|markdown|txt)$/i, '');
+    docTitleEl.textContent = documentTitle;
+    document.title = documentTitle + ' — Annoteer';
+    docContent.innerHTML = currentBlocks.map(b => b.html).join('\n');
+    let n = 0;
+    docContent.querySelectorAll('[data-pid]').forEach(el => {
+      n++;
+      const num = document.createElement('span');
+      num.className = 'para-num';
+      num.textContent = '¶' + n;
+      el.appendChild(num);
+      el.dataset.paraN = n;
+    });
+  }
+
+  function showEditor() {
+    welcomeEl.style.display = 'none';
+    mastheadEl.style.display = 'flex';
+    layoutEl.style.display = 'grid';
+  }
+
+  function placeAnnotationInDOM(ann) {
+    const pid = ann.paragraph_id;
+    const el = pid ? docContent.querySelector(`[data-pid="${pid}"]`) : null;
+    if (!el) return false;
+    const target = ann.text;
+    if (!target) return false;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let n;
+    while ((n = walker.nextNode())) {
+      if (n.parentElement.closest('.hl-comment, .hl-suggest, .hl-replacement')) continue;
+      if (n.parentElement.classList.contains('para-num')) continue;
+      textNodes.push(n);
+    }
+    for (const node of textNodes) {
+      const idx = node.nodeValue.indexOf(target);
+      if (idx !== -1) {
+        const before = node.nodeValue.slice(0, idx);
+        const matched = node.nodeValue.slice(idx, idx + target.length);
+        const after = node.nodeValue.slice(idx + target.length);
+        const span = document.createElement('span');
+        span.className = ann.kind === 'suggestion' ? 'hl-suggest' : 'hl-comment';
+        span.dataset.id = ann.id;
+        span.textContent = matched;
+        const numBadge = document.createElement('span');
+        numBadge.className = 'hl-num';
+        numBadge.textContent = ann.id;
+        span.appendChild(numBadge);
+        const parent = node.parentNode;
+        parent.insertBefore(document.createTextNode(before), node);
+        parent.insertBefore(span, node);
+        if (ann.kind === 'suggestion' && ann.replacement) {
+          const rep = document.createElement('span');
+          rep.className = 'hl-replacement';
+          rep.dataset.id = ann.id;
+          rep.textContent = '→ ' + ann.replacement;
+          parent.insertBefore(rep, node);
+        }
+        parent.insertBefore(document.createTextNode(after), node);
+        parent.removeChild(node);
+        attachHighlightClick(span, ann.id);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function loadAnnotationsData(data) {
+    let loaded = 0, skipped = 0;
+    const existingIds = new Set(annotations.map(a => a.id));
+    data.annotations.forEach(a => {
+      if (existingIds.has(a.id)) a.id = nextId++;
+      else nextId = Math.max(nextId, a.id + 1);
+      if (!a.kind) a.kind = 'comment';
+      const placed = placeAnnotationInDOM(a);
+      if (placed) { annotations.push(a); loaded++; } else { skipped++; }
+    });
+    if (data.general_notes && !generalNotes.value.trim()) {
+      generalNotes.value = data.general_notes;
+    }
+    renderAnnotations();
+    return { loaded, skipped };
+  }
+
+  function updateCount() {
+    countEl.textContent = annotations.length;
+    emptyState.style.display = annotations.length === 0 ? 'block' : 'none';
+  }
+
+  function renderAnnotations() {
+    [...annotationsEl.children].forEach(c => { if (c.id !== 'emptyState') c.remove(); });
+    const me = reviewerInput.value.trim() || 'onbekend';
+    const ordered = [...annotations].sort((a, b) => {
+      const ea = docContent.querySelector(`[data-pid="${a.paragraph_id}"]`);
+      const eb = docContent.querySelector(`[data-pid="${b.paragraph_id}"]`);
+      const na = ea ? parseInt(ea.dataset.paraN) : 999;
+      const nb = eb ? parseInt(eb.dataset.paraN) : 999;
+      if (na !== nb) return na - nb;
+      return a.id - b.id;
+    });
+
+    ordered.forEach(ann => {
+      const card = document.createElement('div');
+      card.className = 'annotation-card';
+      card.dataset.id = ann.id;
+      const ownedByMe = !ann.author || ann.author === me;
+      const sectionPath = getSectionPath(currentBlocks, ann.paragraph_id);
+      const sectionText = sectionPath.map(s => s.text).join(' › ');
+      const paraEl = docContent.querySelector(`[data-pid="${ann.paragraph_id}"]`);
+      const paraN = paraEl ? '¶' + paraEl.dataset.paraN : '';
+      const isSuggestion = ann.kind === 'suggestion';
+      const kindLabel = isSuggestion ? 'vervang' : 'opmerking';
+      const kindCls = isSuggestion ? 'suggestion' : 'comment';
+
+      const header = document.createElement('div');
+      header.className = 'header';
+      header.innerHTML = `
+        <div class="num-kind">
+          <span class="num">№ ${String(ann.id).padStart(2, '0')} · ${paraN}</span>
+          <span class="kind-pill ${kindCls}">${kindLabel}</span>
+        </div>
+        <span class="author">${escapeHtml(ann.author || 'onbekend')}</span>
+      `;
+      card.appendChild(header);
+
+      const loc = document.createElement('div');
+      loc.className = 'location';
+      loc.title = sectionText;
+      loc.textContent = sectionText || '—';
+      card.appendChild(loc);
+
+      const quote = document.createElement('div');
+      quote.className = 'quote' + (isSuggestion ? ' struck' : '');
+      quote.textContent = '"' + ann.text + '"';
+      quote.addEventListener('click', () => scrollToHighlight(ann.id));
+      card.appendChild(quote);
+
+      if (isSuggestion) {
+        const repLabel = document.createElement('div');
+        repLabel.className = 'field-label';
+        repLabel.textContent = 'Vervang door';
+        card.appendChild(repLabel);
+
+        const repInput = document.createElement('textarea');
+        repInput.className = 'replacement-input';
+        repInput.placeholder = 'Nieuwe tekst…';
+        repInput.value = ann.replacement || '';
+        repInput.disabled = !ownedByMe;
+        if (ownedByMe) {
+          repInput.addEventListener('input', (e) => {
+            ann.replacement = e.target.value;
+            if (!ann.author) ann.author = me;
+            let repEl = docContent.querySelector(`.hl-replacement[data-id="${ann.id}"]`);
+            if (ann.replacement) {
+              if (repEl) repEl.textContent = '→ ' + ann.replacement;
+              else {
+                const hl = docContent.querySelector(`.hl-suggest[data-id="${ann.id}"]`);
+                if (hl) {
+                  const rep = document.createElement('span');
+                  rep.className = 'hl-replacement';
+                  rep.dataset.id = ann.id;
+                  rep.textContent = '→ ' + ann.replacement;
+                  hl.parentNode.insertBefore(rep, hl.nextSibling);
+                }
+              }
+            } else if (repEl) {
+              repEl.remove();
+            }
+          });
+        }
+        card.appendChild(repInput);
+
+        const reasonLabel = document.createElement('div');
+        reasonLabel.className = 'field-label';
+        reasonLabel.textContent = 'Toelichting (optioneel)';
+        card.appendChild(reasonLabel);
+
+        const noteInput = document.createElement('textarea');
+        noteInput.placeholder = 'Waarom deze wijziging…';
+        noteInput.value = ann.comment || '';
+        noteInput.disabled = !ownedByMe;
+        if (ownedByMe) {
+          noteInput.addEventListener('input', (e) => {
+            ann.comment = e.target.value;
+            if (!ann.author) ann.author = me;
+          });
+        }
+        card.appendChild(noteInput);
+      } else {
+        const commentInput = document.createElement('textarea');
+        commentInput.placeholder = 'Jouw opmerking…';
+        commentInput.value = ann.comment || '';
+        commentInput.disabled = !ownedByMe;
+        if (ownedByMe) {
+          commentInput.addEventListener('input', (e) => {
+            ann.comment = e.target.value;
+            if (!ann.author) ann.author = me;
+          });
+        }
+        card.appendChild(commentInput);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const locateBtn = document.createElement('button');
+      locateBtn.textContent = '↑ Naar tekst';
+      locateBtn.addEventListener('click', (e) => { e.stopPropagation(); scrollToHighlight(ann.id); });
+      actions.appendChild(locateBtn);
+      if (ownedByMe) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete';
+        delBtn.textContent = 'Verwijder';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm('Annotatie ' + ann.id + ' verwijderen?')) removeAnnotation(ann.id);
+        });
+        actions.appendChild(delBtn);
+      }
+      card.appendChild(actions);
+      annotationsEl.appendChild(card);
+    });
+    updateCount();
+  }
+
+  function scrollToHighlight(id) {
+    const el = docContent.querySelector(`.hl-comment[data-id="${id}"], .hl-suggest[data-id="${id}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      docContent.querySelectorAll('.hl-comment.active, .hl-suggest.active').forEach(h => h.classList.remove('active'));
+      el.classList.add('active');
+      setTimeout(() => el.classList.remove('active'), 1500);
+    }
+  }
+
+  function removeAnnotation(id) {
+    annotations = annotations.filter(a => a.id !== id);
+    const els = docContent.querySelectorAll(`.hl-comment[data-id="${id}"], .hl-suggest[data-id="${id}"], .hl-replacement[data-id="${id}"]`);
+    els.forEach(el => {
+      const parent = el.parentNode;
+      if (el.classList.contains('hl-replacement')) parent.removeChild(el);
+      else {
+        const num = el.querySelector('.hl-num');
+        if (num) num.remove();
+        parent.replaceChild(document.createTextNode(el.textContent), el);
+      }
+      parent.normalize();
+    });
+    renderAnnotations();
+  }
+
+  function attachHighlightClick(span, id) {
+    span.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const card = annotationsEl.querySelector(`[data-id="${id}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        annotationsEl.querySelectorAll('.annotation-card.active').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const ta = card.querySelector('textarea');
+        if (ta && !ta.disabled) ta.focus();
+        setTimeout(() => card.classList.remove('active'), 2000);
+      }
+    });
+  }
+
+  function wrapRange(range, id, kind) {
+    try {
+      const span = document.createElement('span');
+      span.className = kind === 'suggestion' ? 'hl-suggest' : 'hl-comment';
+      span.dataset.id = id;
+      const contents = range.extractContents();
+      span.appendChild(contents);
+      const num = document.createElement('span');
+      num.className = 'hl-num';
+      num.textContent = id;
+      span.appendChild(num);
+      range.insertNode(span);
+      attachHighlightClick(span, id);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 2) {
+      popup.style.display = 'none'; currentRange = null; return;
+    }
+    const range = sel.getRangeAt(0);
+    let node = range.commonAncestorContainer;
+    if (node.nodeType === 3) node = node.parentElement;
+    if (!docContent.contains(node)) { popup.style.display = 'none'; return; }
+    const paraEl = node.closest('[data-pid]');
+    if (!paraEl) { popup.style.display = 'none'; return; }
+    if (node.closest('.hl-comment, .hl-suggest, .hl-replacement, .para-num, .help-banner')) {
+      popup.style.display = 'none'; return;
+    }
+    const walker = document.createTreeWalker(paraEl, NodeFilter.SHOW_ELEMENT);
+    let crosses = false, cur = walker.currentNode;
+    while (cur) {
+      if (cur.classList && (cur.classList.contains('hl-comment') || cur.classList.contains('hl-suggest')) && range.intersectsNode(cur)) {
+        crosses = true; break;
+      }
+      cur = walker.nextNode();
+    }
+    if (crosses) { popup.style.display = 'none'; return; }
+    let endNode = range.endContainer;
+    if (endNode.nodeType === 3) endNode = endNode.parentElement;
+    if (!paraEl.contains(endNode)) { popup.style.display = 'none'; return; }
+    currentRange = range.cloneRange();
+    currentRange._paraId = paraEl.dataset.pid;
+    const rect = range.getBoundingClientRect();
+    popup.style.display = 'flex';
+    popup.style.left = (rect.left + rect.width / 2 + window.scrollX) + 'px';
+    popup.style.top = (rect.top + window.scrollY - 44) + 'px';
+  });
+
+  popup.addEventListener('mousedown', (e) => e.preventDefault());
+
+  function createAnnotation(kind) {
+    if (!currentRange) return;
+    const text = currentRange.toString().trim();
+    if (text.length < 2) return;
+    const id = nextId++;
+    const paragraphId = currentRange._paraId;
+    const success = wrapRange(currentRange, id, kind);
+    if (success) {
+      const me = reviewerInput.value.trim() || 'onbekend';
+      const ann = { id, paragraph_id: paragraphId, text, kind,
+        comment: '', author: me, created_at: new Date().toISOString() };
+      if (kind === 'suggestion') ann.replacement = '';
+      annotations.push(ann);
+      renderAnnotations();
+      setTimeout(() => {
+        const card = annotationsEl.querySelector(`[data-id="${id}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const ta = card.querySelector('textarea'); if (ta) ta.focus();
+        }
+      }, 100);
+    }
+    window.getSelection().removeAllRanges();
+    popup.style.display = 'none';
+    currentRange = null;
+  }
+
+  document.getElementById('popupComment').addEventListener('click', () => createAnnotation('comment'));
+  document.getElementById('popupSuggest').addEventListener('click', () => createAnnotation('suggestion'));
+
+  document.addEventListener('mousedown', (e) => {
+    if (!popup.contains(e.target)) {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) popup.style.display = 'none';
+    }
+  });
+
+  function loadMarkdownFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      mdFilename = file.name;
+      mdPillEl.textContent = file.name;
+      annotations = [];
+      nextId = 1;
+      renderDocument(e.target.result);
+      showEditor();
+      if (pendingJsonData) {
+        const result = loadAnnotationsData(pendingJsonData);
+        let msg = `${result.loaded} annotaties geladen`;
+        if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
+        showToast(msg);
+        pendingJsonData = null;
+        pendingJsonEl.style.display = 'none';
+      } else {
+        showToast(file.name + ' geladen');
+      }
+      savedSnapshot = snapshot();
+    };
+    reader.onerror = () => showToast('Kon bestand niet lezen', true);
+    reader.readAsText(file);
+  }
+
+  function tryParseJson(file, onSuccess) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.annotations || !Array.isArray(data.annotations)) {
+          throw new Error('geen geldig annotaties-bestand (mist `annotations` array)');
+        }
+        onSuccess(data);
+      } catch (err) {
+        showToast('Kon JSON niet lezen: ' + err.message, true);
+      }
+    };
+    reader.onerror = () => showToast('Kon bestand niet lezen', true);
+    reader.readAsText(file);
+  }
+
+  dropzone.addEventListener('click', () => mdFileWelcome.click());
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault(); dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault(); dropzone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && /\.(md|markdown|txt)$/i.test(file.name)) loadMarkdownFile(file);
+    else showToast('Sleep een .md-, .markdown- of .txt-bestand', true);
+  });
+  mdFileWelcome.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadMarkdownFile(e.target.files[0]);
+    e.target.value = '';
+  });
+  loadJsonWelcomeLink.addEventListener('click', (e) => {
+    e.preventDefault(); jsonFileWelcome.click();
+  });
+  jsonFileWelcome.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    tryParseJson(file, (data) => {
+      pendingJsonData = data;
+      const safeName = escapeHtml(file.name);
+      pendingJsonEl.innerHTML = `✓ <strong>${safeName}</strong> klaar — laad nu het bijbehorende markdown-bestand · <span class="clear-pending">verwijder</span>`;
+      pendingJsonEl.style.display = 'block';
+      pendingJsonEl.querySelector('.clear-pending').addEventListener('click', () => {
+        pendingJsonData = null;
+        pendingJsonEl.style.display = 'none';
+      });
+    });
+    e.target.value = '';
+  });
+
+  document.getElementById('changeMdBtn').addEventListener('click', () => {
+    if (annotations.length > 0 || generalNotes.value.trim()) {
+      if (!confirm('Je hebt annotaties die mogelijk niet opgeslagen zijn. Doorgaan?')) return;
+    }
+    mdFileChange.click();
+  });
+  mdFileChange.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadMarkdownFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  document.getElementById('loadJsonBtn').addEventListener('click', () => jsonFileMain.click());
+  jsonFileMain.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    tryParseJson(file, (data) => {
+      const result = loadAnnotationsData(data);
+      let msg = `${result.loaded} annotaties geladen`;
+      if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
+      showToast(msg);
+    });
+    e.target.value = '';
+  });
+
+  document.getElementById('saveJsonBtn').addEventListener('click', () => {
+    const payload = {
+      version: 2,
+      document_filename: mdFilename,
+      document_title: documentTitle,
+      exported_at: new Date().toISOString(),
+      reviewer: reviewerInput.value.trim() || 'onbekend',
+      general_notes: generalNotes.value.trim(),
+      annotations: annotations.map(a => ({
+        id: a.id, paragraph_id: a.paragraph_id,
+        kind: a.kind || 'comment',
+        text: a.text,
+        replacement: a.replacement || '',
+        comment: a.comment || '',
+        author: a.author || (reviewerInput.value.trim() || 'onbekend'),
+        created_at: a.created_at || new Date().toISOString()
+      }))
+    };
+    download(JSON.stringify(payload, null, 2), suggestFilename('json', 'annotations'), 'application/json');
+    savedSnapshot = snapshot();
+    showToast('Annotaties opgeslagen als .json');
+  });
+
+  document.getElementById('exportMdBtn').addEventListener('click', () => {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const me = reviewerInput.value.trim() || 'onbekend';
+
+    let md = `# Feedback — ${documentTitle}\n\n`;
+    md += `**Bron:** ${mdFilename}  \n`;
+    md += `**Reviewer:** ${me}  \n`;
+    md += `**Datum:** ${dateStr}, ${timeStr}  \n`;
+    md += `**Aantal annotaties:** ${annotations.length}\n\n---\n\n`;
+
+    if (generalNotes.value.trim()) {
+      md += `## Algemene opmerkingen\n\n${generalNotes.value.trim()}\n\n---\n\n`;
+    }
+
+    if (annotations.length === 0) {
+      md += `*Geen specifieke annotaties.*\n`;
+    } else {
+      md += `## Annotaties\n\n`;
+      const ordered = [...annotations].sort((a, b) => {
+        const ea = docContent.querySelector(`[data-pid="${a.paragraph_id}"]`);
+        const eb = docContent.querySelector(`[data-pid="${b.paragraph_id}"]`);
+        const na = ea ? parseInt(ea.dataset.paraN) : 999;
+        const nb = eb ? parseInt(eb.dataset.paraN) : 999;
+        if (na !== nb) return na - nb;
+        return a.id - b.id;
+      });
+      ordered.forEach(ann => {
+        const paraEl = docContent.querySelector(`[data-pid="${ann.paragraph_id}"]`);
+        const paraN = paraEl ? '¶' + paraEl.dataset.paraN : '?';
+        const path = getSectionPath(currentBlocks, ann.paragraph_id);
+        const sectionStr = path.map(s => s.text).join(' › ') || '(geen sectie)';
+        const kindLabel = ann.kind === 'suggestion' ? 'Tekstwijziging' : 'Opmerking';
+        md += `### № ${String(ann.id).padStart(2, '0')} · ${paraN} — ${kindLabel}\n\n`;
+        md += `**Sectie:** ${sectionStr}  \n`;
+        md += `**Door:** ${ann.author || me}\n\n`;
+        if (ann.kind === 'suggestion') {
+          md += `> ~~${ann.text}~~ → **${ann.replacement || '(leeg)'}**\n\n`;
+          if (ann.comment && ann.comment.trim()) md += `${ann.comment.trim()}\n\n`;
+        } else {
+          md += `> ${ann.text.replace(/\n/g, '\n> ')}\n\n`;
+          md += (ann.comment && ann.comment.trim()) ? `${ann.comment.trim()}\n\n` : `*(geen opmerking)*\n\n`;
+        }
+      });
+    }
+    download(md, suggestFilename('md', 'rapport'), 'text/markdown;charset=utf-8');
+    savedSnapshot = snapshot();
+    showToast('Rapport geëxporteerd');
+  });
+
+  document.getElementById('exportRevisedBtn').addEventListener('click', () => {
+    const byPid = {};
+    annotations.forEach(a => {
+      if (!byPid[a.paragraph_id]) byPid[a.paragraph_id] = [];
+      byPid[a.paragraph_id].push(a);
+    });
+
+    const md = documentMarkdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const srcLines = md.split('\n');
+    const outLines = [];
+    let i = 0, paraCounter = 0;
+    while (i < srcLines.length) {
+      const line = srcLines[i];
+      if (/^```/.test(line)) {
+        outLines.push(line); i++;
+        while (i < srcLines.length && !/^```/.test(srcLines[i])) { outLines.push(srcLines[i]); i++; }
+        if (i < srcLines.length) { outLines.push(srcLines[i]); i++; }
+        paraCounter++; continue;
+      }
+      const h = line.match(/^(#{1,6})\s+(.+)$/);
+      if (h) { paraCounter++; outLines.push(applyAnnotationsToBlock(line, `p-${paraCounter}`, byPid)); i++; continue; }
+      if (/^(\s*[-*_]){3,}\s*$/.test(line) && line.trim().length >= 3) { outLines.push(line); i++; continue; }
+      if (/^>\s?/.test(line)) {
+        const buf = [];
+        while (i < srcLines.length && /^>\s?/.test(srcLines[i])) { buf.push(srcLines[i]); i++; }
+        paraCounter++;
+        outLines.push(applyAnnotationsToBlock(buf.join('\n'), `p-${paraCounter}`, byPid));
+        continue;
+      }
+      if (/^[-*+]\s+/.test(line)) {
+        const buf = [];
+        while (i < srcLines.length && (/^[-*+]\s+/.test(srcLines[i]) || /^ {2,}\S/.test(srcLines[i]))) { buf.push(srcLines[i]); i++; }
+        paraCounter++;
+        outLines.push(applyAnnotationsToBlock(buf.join('\n'), `p-${paraCounter}`, byPid));
+        continue;
+      }
+      if (/^\d+\.\s+/.test(line)) {
+        const buf = [];
+        while (i < srcLines.length && (/^\d+\.\s+/.test(srcLines[i]) || /^ {2,}\S/.test(srcLines[i]))) { buf.push(srcLines[i]); i++; }
+        paraCounter++;
+        outLines.push(applyAnnotationsToBlock(buf.join('\n'), `p-${paraCounter}`, byPid));
+        continue;
+      }
+      if (line.trim() === '') { outLines.push(line); i++; continue; }
+      const paraBuf = [];
+      while (i < srcLines.length && srcLines[i].trim() !== '' &&
+             !/^(#{1,6}\s|>|```|[-*+]\s|\d+\.\s)/.test(srcLines[i]) &&
+             !/^(\s*[-*_]){3,}\s*$/.test(srcLines[i])) {
+        paraBuf.push(srcLines[i]); i++;
+      }
+      if (paraBuf.length > 0) {
+        paraCounter++;
+        outLines.push(applyAnnotationsToBlock(paraBuf.join('\n'), `p-${paraCounter}`, byPid));
+      }
+    }
+    let output = outLines.join('\n');
+    if (!output.endsWith('\n')) output += '\n';
+    download(output, suggestFilename('md', 'gewijzigd'), 'text/markdown;charset=utf-8');
+    savedSnapshot = snapshot();
+    showToast('Gewijzigde markdown geëxporteerd');
+  });
+
+  function applyAnnotationsToBlock(text, pid, byPid) {
+    const anns = byPid[pid];
+    if (!anns || anns.length === 0) return text;
+    let result = text;
+    const suggestions = anns.filter(a => a.kind === 'suggestion').sort((a, b) => b.text.length - a.text.length);
+    suggestions.forEach(a => {
+      const replacement = a.replacement || '';
+      const idx = result.indexOf(a.text);
+      if (idx !== -1) result = result.slice(0, idx) + replacement + result.slice(idx + a.text.length);
+    });
+    const comments = anns.filter(a => a.kind !== 'suggestion');
+    comments.forEach(a => {
+      if (!a.comment || !a.comment.trim()) return;
+      const author = a.author || 'onbekend';
+      const marker = `[[${author} » ${a.comment.trim()}]]`;
+      const idx = result.indexOf(a.text);
+      if (idx !== -1) {
+        const insertAt = idx + a.text.length;
+        result = result.slice(0, insertAt) + ' ' + marker + result.slice(insertAt);
+      } else {
+        result += ' ' + marker;
+      }
+    });
+    return result;
+  }
+
+  function suggestFilename(ext, suffix) {
+    const base = mdFilename.replace(/\.(md|markdown|txt)$/i, '');
+    const reviewer = (reviewerInput.value.trim() || 'feedback').replace(/[^a-zA-Z0-9-_]/g, '_');
+    const date = new Date().toISOString().slice(0, 10);
+    return `${base}_${reviewer}_${suffix}_${date}.${ext}`;
+  }
+
+  function download(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  function snapshot() {
+    return JSON.stringify({
+      a: annotations.map(x => ({ id: x.id, c: x.comment, r: x.replacement, k: x.kind })),
+      g: generalNotes.value
+    });
+  }
+  let savedSnapshot = snapshot();
+  window.addEventListener('beforeunload', (e) => {
+    if (annotations.length === 0 && !generalNotes.value.trim()) return;
+    if (snapshot() === savedSnapshot) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  document.body.addEventListener('dragover', (e) => {
+    if (welcomeEl.style.display === 'none') e.preventDefault();
+  });
+  document.body.addEventListener('drop', (e) => {
+    if (welcomeEl.style.display === 'none') {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      if (/\.(md|markdown|txt)$/i.test(file.name)) {
+        if (annotations.length > 0 || generalNotes.value.trim()) {
+          if (!confirm('Een nieuw markdown-bestand laden vervangt je huidige annotaties. Doorgaan?')) return;
+        }
+        loadMarkdownFile(file);
+      } else if (/\.json$/i.test(file.name)) {
+        tryParseJson(file, (data) => {
+          const result = loadAnnotationsData(data);
+          let msg = `${result.loaded} annotaties geladen`;
+          if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
+          showToast(msg);
+        });
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>
