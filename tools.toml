@@ -1,0 +1,101 @@
+# Toolstemp — tools manifest
+# Single source of truth for index.html. Edit this, then regenerate:
+#
+#     uv run scripts/build_index.py
+#
+# RULE: every *.html in the repo root (except index.html) MUST have a [[tool]]
+# entry here. build_index.py errors out if one is missing — that check is what
+# keeps the index from rotting when you add a tool. Files are never moved or
+# renamed: the public URL is the filename, and planten.html is a wired PWA.
+
+site_title = "Toolstemp · web-apps"
+heading    = "Kleine web-apps"
+intro      = "Een verzameling losse, in-browser tools — gehost op GitHub Pages. Geen installatie, geen server, alles draait lokaal in je browser."
+github_url = "https://github.com/hopsakee/toolstemp"
+footer     = "MIT License — Jelle de Jong — 2026"
+
+# The single highlighted tool (the one [[tool]] with featured = true) is rendered
+# in this hero section instead of in its category grid.
+[featured]
+star         = "★ Uitgelicht"
+button_class = "btn-featured"
+cta          = "Open de kaart →"
+
+# Category sections, rendered in this order. A tool's `category` matches `key`.
+# Add a new category here (key + label + button_class + cta) to start a section.
+[[category]]
+key          = "tools"
+label        = "Meer tools"
+button_class = "btn-app"
+cta          = "Open app"
+
+[[category]]
+key          = "ccv"
+label        = "🚵 Cent Cols de Vosges 2026"
+button_class = "btn-ccv"
+cta          = "Openen →"
+
+# ── Tools ──────────────────────────────────────────────────────────────────
+# file:        the html filename at repo root (== its public URL, never change it)
+# title:       card heading
+# description: card body text
+# icon:        emoji shown on the card
+# category:    one of the [[category]] keys above
+# featured:    optional; exactly one tool may set this to true
+
+[[tool]]
+file        = "grondwater-trends.html"
+title       = "Grondwaterstandtrends"
+icon        = "🗺️"
+category    = "tools"
+featured    = true
+description = "Een interactieve kaart van Nederland met 25-jaar trends in de grondwaterstand bij ~90 peilbuizen, op basis van BRO/DINO-data. Bekijk per locatie hoe de zomer- en winterstanden zich over de jaren hebben ontwikkeld — in één oogopslag op de kaart."
+
+[[tool]]
+file        = "planten.html"
+title       = "Plantenpuzzel"
+icon        = "🌿"
+category    = "tools"
+description = "Een speurtocht voor in het veld: zoek en fotografeer 20 bijzondere planten in de Weerribben-Wieden. Werkt offline als installeerbare PWA op je telefoon."
+
+[[tool]]
+file        = "html-annotator.html"
+title       = "HTML Annotator"
+icon        = "📝"
+category    = "tools"
+description = "Selecteer passages in een HTML-document en markeer ze met kleuren en notities. Bewaar je annotatielaag apart of bak de notities terug in het bestand."
+
+[[tool]]
+file        = "markdown-annotator.html"
+title       = "Markdown Annotator"
+icon        = "✍️"
+category    = "tools"
+description = "Sleep een markdown-bestand naar het scherm en review het: pas tekst aan en plaats opmerkingen. Alles blijft lokaal in de browser tot je het exporteert."
+
+[[tool]]
+file        = "ccv-campings.html"
+title       = "Campings & uitdagingen"
+icon        = "🏕️"
+category    = "ccv"
+description = "Praktische planning: campinglocaties per traject, alternatieven, afstanden tot de route en logistieke uitdagingen voor de CCV 2026."
+
+[[tool]]
+file        = "ccv-route-fr.html"
+title       = "Route (Frans)"
+icon        = "🗺️"
+category    = "ccv"
+description = "Volledige routebeschrijving per tronçon — cols, waypoints, km-standen en remarques. Oorspronkelijk Franstalige versie."
+
+[[tool]]
+file        = "ccv-route-nl.html"
+title       = "Route (Nederlands)"
+icon        = "🗺️"
+category    = "ccv"
+description = "Volledige routebeschrijving per traject — cols, waypoints, km-standen en opmerkingen. Nederlandstalige versie."
+
+[[tool]]
+file        = "ccv-ritzwaarte.html"
+title       = "Ritzwaarte 2.0"
+icon        = "📊"
+category    = "ccv"
+description = "Schat de zwaarte van een rit met bepakking op basis van afstand en hoogtemeters — gefit op de ritdata van 2023 en 2025, met de rittijd als effort-proxy."
