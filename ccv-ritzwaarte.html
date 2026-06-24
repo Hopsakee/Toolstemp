@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ritzwaarte 2.0 — Vogezen</title>
+<style>
+  :root{
+    --bg:#0f1720; --card:#172230; --line:#2c3e52;
+    --txt:#e6edf3; --muted:#8aa0b4; --accent:#4ea1ff; --good:#52c41a;
+    --warn:#faad14; --hot:#ff7a45; --max:#ff4d4f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       line-height:1.5;padding:24px}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:1.5rem;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:.85rem;margin:0 0 22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:22px;margin-bottom:18px}
+  label{display:block;font-size:.82rem;color:var(--muted);margin:0 0 6px;font-weight:600;
+        text-transform:uppercase;letter-spacing:.04em}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  input[type=number]{width:100%;background:var(--bg);border:1px solid var(--line);
+        color:var(--txt);font-size:1.25rem;padding:12px 14px;border-radius:10px;outline:none}
+  input[type=number]:focus{border-color:var(--accent)}
+  .hint{font-size:.74rem;color:var(--muted);margin-top:6px}
+  .toggle{display:flex;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .toggle button{flex:1;background:var(--bg);color:var(--muted);border:0;padding:12px;
+        font-size:.95rem;cursor:pointer;font-weight:600}
+  .toggle button.on{background:var(--accent);color:#04121f}
+  .result{text-align:center;padding:8px 0 4px}
+  .big{font-size:3.4rem;font-weight:800;letter-spacing:-1px;line-height:1}
+  .bigsub{color:var(--muted);font-size:.9rem;margin-top:4px}
+  .band{display:inline-block;margin-top:14px;padding:7px 18px;border-radius:999px;
+        font-weight:700;font-size:1rem}
+  .breakdown{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
+  .bd{display:flex;justify-content:space-between;padding:5px 0;font-size:.92rem}
+  .bd span:first-child{color:var(--muted)}
+  .bd b{font-variant-numeric:tabular-nums}
+  .compare{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted);
+        margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+  footer{color:var(--muted);font-size:.74rem;text-align:center;margin-top:8px;line-height:1.7}
+  .barwrap{height:8px;background:var(--bg);border-radius:6px;margin-top:16px;overflow:hidden}
+  .bar{height:100%;border-radius:6px;transition:width .25s,background .25s}
+  details{margin-top:14px;font-size:.82rem;color:var(--muted)}
+  summary{cursor:pointer;color:var(--accent)}
+  details p{margin:8px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ritzwaarte 2.0 · Vogezen 🚲</h1>
+  <p class="sub">Verwachte zwaarte van een fietsrit met bepakking. Gevoede effort ≈ voorspelde rittijd
+     (de beste proxy die we hebben). Snelheid/tijd zijn <em>uitkomst</em>, dus geen invoer.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>Afstand (km)</label>
+        <input id="dist" type="number" min="0" step="1" value="56">
+      </div>
+      <div>
+        <label>Hoogtemeters (m)</label>
+        <input id="elev" type="number" min="0" step="10" value="1100">
+      </div>
+    </div>
+    <div style="margin-top:18px">
+      <label>Bepakking (tent, kleding, eten)</label>
+      <div class="toggle" id="lugT" style="max-width:340px">
+        <button data-v="1" class="on">Mét bepakking</button>
+        <button data-v="0">Zónder</button>
+      </div>
+      <div class="hint">Zonder bepakking ≈ 12% sneller.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="result">
+      <div class="big" id="time">—</div>
+      <div class="bigsub" id="timemin"></div>
+      <div class="barwrap"><div class="bar" id="bar" style="width:0%"></div></div>
+      <div class="band" id="band">—</div>
+    </div>
+    <div class="breakdown">
+      <div class="bd"><span>Vlak-deel (afstand)</span><b id="bd1">—</b></div>
+      <div class="bd"><span>Klim-deel (hoogtemeters)</span><b id="bd2">—</b></div>
+      <div class="bd"><span>Bepakking-correctie</span><b id="bd4">—</b></div>
+      <div class="compare">
+        <span>Vlak-equivalent: <b id="eqkm" style="color:var(--txt)">—</b></span>
+        <span>Ritzwaarte 1.0 (oud): <b id="old" style="color:var(--txt)">—</b></span>
+      </div>
+    </div>
+    <details>
+      <summary>Waarom geen temperatuur?</summary>
+      <p>De data lijkt te zeggen "warmer = sneller", maar dat is schijn: alle koude ritten waren
+         mei-2025 en die waren óók traag — waarschijnlijk door vroeg-seizoen benen/terrein, niet door
+         de kou. Het model verwart die twee. Doorgetrokken naar 34&nbsp;°C zou het onzin voorspellen
+         (sneller in de hitte). Daarom rekent deze tool alleen met afstand en hoogtemeters — de
+         variabelen die je bij het plannen tóch altijd hebt.</p>
+    </details>
+  </div>
+
+  <footer>
+    Formule (min): 2,515·afstand + 0,0677·hoogtemeters, ×0,88 zónder bepakking.<br>
+    Gefit op 11 beladen ritten (2023 + 2025), 2026-rit uitgesloten · R²=0,96 · gem. fout ≈9 min.
+  </footer>
+</div>
+
+<script>
+  // Ritzwaarte 2.0 — gefit op beladen ritten, tegen rittijd (de effort-proxy)
+  const A_DIST = 2.515;   // min per km
+  const B_ELEV = 0.0677;  // min per hoogtemeter
+  const LUG_NO = 0.88;    // zonder bepakking
+  let luggage = 1;
+
+  const $ = id => document.getElementById(id);
+  function fmt(min){
+    if(!isFinite(min)||min<=0) return "—";
+    const h=Math.floor(min/60), m=Math.round(min%60);
+    return h+"u"+String(m).padStart(2,"0");
+  }
+  function signMin(x){ return (x>=0?"+":"−")+Math.abs(x).toFixed(0)+" min"; }
+
+  // effort-banden uit de data (beladen ritten liepen 152–298 min)
+  function band(min){
+    if(min<165) return ["Licht","var(--good)",   (min/165)*0.35];
+    if(min<210) return ["Gemiddeld","var(--accent)",0.35+((min-165)/45)*0.25];
+    if(min<260) return ["Zwaar","var(--warn)",   0.60+((min-210)/50)*0.25];
+    if(min<300) return ["Zeer zwaar","var(--hot)",0.85+((min-260)/40)*0.12];
+    return ["Pittig 🥵","var(--max)",1];
+  }
+
+  function calc(){
+    const d = parseFloat($("dist").value)||0;
+    const e = parseFloat($("elev").value)||0;
+    const flat = A_DIST*d;
+    const climb= B_ELEV*e;
+    const base = flat+climb;
+    const total= base * (luggage? 1 : LUG_NO);
+    const lugC = total - base;
+
+    $("time").textContent   = fmt(total);
+    $("timemin").textContent= total>0 ? Math.round(total)+" min voorspelde rittijd" : "";
+    $("bd1").textContent = "+"+flat.toFixed(0)+" min";
+    $("bd2").textContent = "+"+climb.toFixed(0)+" min";
+    $("bd4").textContent = luggage? "0 min (mét)" : signMin(lugC);
+
+    $("eqkm").textContent = d>0? (d + (B_ELEV/A_DIST)*e).toFixed(1)+" km" : "—";
+    $("old").textContent  = d>0? (d + 4*(e/100) + 0.5*(e/d)).toFixed(1) : "—";
+
+    const [lbl,col,frac]=band(total);
+    const bd=$("band"); bd.textContent=total>0?lbl:"—";
+    bd.style.background=col; bd.style.color="#04121f";
+    const bar=$("bar"); bar.style.width=Math.min(100,Math.max(0,frac*100))+"%";
+    bar.style.background=col;
+  }
+
+  document.querySelectorAll("#lugT button").forEach(b=>{
+    b.onclick=()=>{
+      luggage=+b.dataset.v;
+      document.querySelectorAll("#lugT button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on"); calc();
+    };
+  });
+  ["dist","elev"].forEach(id=>$(id).addEventListener("input",calc));
+  calc();
+</script>
+</body>
+</html>
