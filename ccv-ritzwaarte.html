@@ -70,13 +70,20 @@
         <input id="elev" type="number" min="0" step="10" value="1100">
       </div>
     </div>
-    <div style="margin-top:18px">
-      <label>Bepakking (tent, kleding, eten)</label>
-      <div class="toggle" id="lugT" style="max-width:340px">
-        <button data-v="1" class="on">Mét bepakking</button>
-        <button data-v="0">Zónder</button>
+    <div class="grid" style="margin-top:18px">
+      <div>
+        <label>Rijder (kg) — voor fysica-model</label>
+        <input id="rider" type="number" min="40" step="1" placeholder="78 (jullie: 71–85)">
+        <div class="hint">+ fiets 14 kg + bagage 15 kg. Leeg = 78 kg (groepsgemiddelde).</div>
       </div>
-      <div class="hint">Data-model: ×0,88 zónder bepakking. Fysica-model: ~15 kg lichter.</div>
+      <div>
+        <label>Bepakking (tent, kleding, eten)</label>
+        <div class="toggle" id="lugT">
+          <button data-v="1" class="on">Mét</button>
+          <button data-v="0">Zónder</button>
+        </div>
+        <div class="hint">Data: ×0,88 zónder. Fysica: 15 kg lichter.</div>
+      </div>
     </div>
   </div>
 
@@ -108,11 +115,12 @@
          (36–80 km, 475–1242 hm), maar het trekt een rechte lijn door — buiten dat bereik
          (bv. een korte muur of een vlakke lange dag) gaat het de mist in.</p>
       <p><b>Fysica, afgesteld</b> = steady-state vermogensmodel (Martin e.a. 1998): rolweerstand,
-         luchtweerstand en zwaartekracht. Literatuurwaarden (Crr 0,006; CdA 0,84 m² beladen-rechtop;
-         ρ 1,18), met één fitness-knop (<b>~193 W, 1,8 W/kg</b>) en gewicht (<b>109 kg beladen /
-         94 kg zónder</b>) afgesteld op onze ritten. Geeft ~24 km/u vlak en ~550 m/u klim.
-         Klimtijd schaalt fysisch met de hoogtemeters, dus een steile korte rit krijgt eerlijk meer
-         tijd — daar waar het data-model te optimistisch is.</p>
+         luchtweerstand en zwaartekracht. Literatuurwaarden (Crr 0,006; CdA 0,83 m² beladen-rechtop;
+         ρ 1,18), met één fitness-knop (<b>~189 W, 1,8 W/kg</b>) afgesteld op onze ritten.
+         Gewicht = <b>rijder + fiets 14 kg + bagage 15 kg</b> (default rijder 78 kg → 107 kg beladen /
+         92 kg zónder; pas de rijder aan voor jullie 71–85 kg, dat scheelt ±8 min). Geeft ~24 km/u
+         vlak en ~550 m/u klim. Klimtijd schaalt fysisch met de hoogtemeters, dus een steile korte
+         rit krijgt eerlijk meer tijd — daar waar het data-model te optimistisch is.</p>
       <p>Op ritten zoals wij ze reden geven beide bijna hetzelfde. Ze lopen uiteen bij ongewone
          verhoudingen (heel steil of juist heel vlak) — dan is de fysica-schatting de betere.
          Gewichten kloppen niet? Zeg het, dan stel ik opnieuw af.</p>
@@ -129,7 +137,7 @@
   // ---- Model 1: lineaire fit op onze data ----
   const A_DIST=2.515, B_ELEV=0.0677, LUG_NO=0.88;
   // ---- Model 2: fysica (Martin e.a. 1998), op ons getuned ----
-  const PHY={P:192.7,CdA:0.841,Crr:0.006,rho:1.18,eff:0.97,g:9.81,mLoad:109,mNolug:94,s:0.06};
+  const PHY={P:189.1,CdA:0.826,Crr:0.006,rho:1.18,eff:0.97,g:9.81,bike:14,lug:15,s:0.06};
   let luggage=1;
 
   const $=id=>document.getElementById(id);
@@ -143,9 +151,9 @@
     let lo=0.05,hi=30; for(let i=0;i<60;i++){const m=(lo+hi)/2; if(f(m)>0)hi=m; else lo=m;}
     return (lo+hi)/2;
   }
-  function physMin(d,e,lug){
+  function physMin(d,e,lug,rider){
     if(d<=0&&e<=0) return 0;
-    const m=lug?PHY.mLoad:PHY.mNolug, th=Math.atan(PHY.s);
+    const m=rider+PHY.bike+(lug?PHY.lug:0), th=Math.atan(PHY.s);
     const vf=vsolve(0,m), vc=vsolve(th,m);
     const cr=e/Math.sin(th), flat=Math.max(d*1000-cr,0);
     return (flat/vf+cr/vc)/60; // m / (m/s) = s ; /60 = min
@@ -161,7 +169,8 @@
 
   function calc(){
     const d=parseFloat($("dist").value)||0, e=parseFloat($("elev").value)||0;
-    const td=dataMin(d,e,luggage), tp=physMin(d,e,luggage);
+    const rRaw=$("rider").value.trim(), rider=rRaw===""?78:(parseFloat(rRaw)||78);
+    const td=dataMin(d,e,luggage), tp=physMin(d,e,luggage,rider);
     $("tData").textContent=fmt(td); $("mData").textContent=td>0?Math.round(td)+" min":"";
     $("tPhys").textContent=fmt(tp); $("mPhys").textContent=tp>0?Math.round(tp)+" min":"";
 
@@ -191,7 +200,7 @@
       document.querySelectorAll("#lugT button").forEach(x=>x.classList.remove("on"));
       b.classList.add("on"); calc(); };
   });
-  ["dist","elev"].forEach(id=>$(id).addEventListener("input",calc));
+  ["dist","elev","rider"].forEach(id=>$(id).addEventListener("input",calc));
   calc();
 </script>
 </body>
