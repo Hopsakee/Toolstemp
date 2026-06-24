@@ -6,8 +6,8 @@
 <title>Ritzwaarte 2.0 — Vogezen</title>
 <style>
   :root{
-    --bg:#0f1720; --card:#172230; --line:#2c3e52;
-    --txt:#e6edf3; --muted:#8aa0b4; --accent:#4ea1ff; --good:#52c41a;
+    --bg:#0f1720; --card:#172230; --card2:#1f2d3d; --line:#2c3e52;
+    --txt:#e6edf3; --muted:#8aa0b4; --accent:#4ea1ff; --teal:#2dd4bf; --good:#52c41a;
     --warn:#faad14; --hot:#ff7a45; --max:#ff4d4f;
   }
   *{box-sizing:border-box}
@@ -30,30 +30,34 @@
   .toggle button{flex:1;background:var(--bg);color:var(--muted);border:0;padding:12px;
         font-size:.95rem;cursor:pointer;font-weight:600}
   .toggle button.on{background:var(--accent);color:#04121f}
-  .result{text-align:center;padding:8px 0 4px}
-  .big{font-size:3.4rem;font-weight:800;letter-spacing:-1px;line-height:1}
-  .bigsub{color:var(--muted);font-size:.9rem;margin-top:4px}
-  .band{display:inline-block;margin-top:14px;padding:7px 18px;border-radius:999px;
-        font-weight:700;font-size:1rem}
-  .breakdown{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}
-  .bd{display:flex;justify-content:space-between;padding:5px 0;font-size:.92rem}
-  .bd span:first-child{color:var(--muted)}
-  .bd b{font-variant-numeric:tabular-nums}
-  .compare{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted);
-        margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .pred{background:var(--card2);border:1px solid var(--line);border-radius:12px;
+        padding:18px 14px;text-align:center}
+  .pred .tag{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .pred.data .tag{color:var(--accent)} .pred.phys .tag{color:var(--teal)}
+  .pred .big{font-size:2.5rem;font-weight:800;letter-spacing:-1px;line-height:1.1;margin-top:6px}
+  .pred .mm{color:var(--muted);font-size:.8rem;margin-top:2px}
+  .pred .src{color:var(--muted);font-size:.7rem;margin-top:8px;line-height:1.35}
+  .band{display:block;text-align:center;margin:16px auto 0;padding:7px 18px;border-radius:999px;
+        font-weight:700;font-size:1rem;width:max-content}
+  .flag{margin-top:14px;font-size:.82rem;border-radius:10px;padding:10px 13px;display:none}
+  .flag.show{display:block}
+  .flag.warn{background:rgba(250,173,20,.12);border:1px solid rgba(250,173,20,.4);color:#ffd666}
+  .flag.ok{background:rgba(82,196,26,.10);border:1px solid rgba(82,196,26,.35);color:#95de64}
+  .compare{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);
+        margin-top:16px;border-top:1px dashed var(--line);padding-top:12px;flex-wrap:wrap;gap:8px}
   footer{color:var(--muted);font-size:.74rem;text-align:center;margin-top:8px;line-height:1.7}
-  .barwrap{height:8px;background:var(--bg);border-radius:6px;margin-top:16px;overflow:hidden}
-  .bar{height:100%;border-radius:6px;transition:width .25s,background .25s}
   details{margin-top:14px;font-size:.82rem;color:var(--muted)}
   summary{cursor:pointer;color:var(--accent)}
-  details p{margin:8px 0 0}
+  details p{margin:8px 0 0} details b{color:var(--txt)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Ritzwaarte 2.0 · Vogezen 🚲</h1>
-  <p class="sub">Verwachte zwaarte van een fietsrit met bepakking. Gevoede effort ≈ voorspelde rittijd
-     (de beste proxy die we hebben). Snelheid/tijd zijn <em>uitkomst</em>, dus geen invoer.</p>
+  <p class="sub">Twee schattingen van de rittijd (de beste effort-proxy): één gefit op <b>onze
+     eigen ritten</b>, één uit <b>fietsfysica</b> afgesteld op onze ritten. Snelheid/tijd zijn
+     <em>uitkomst</em>, dus geen invoer.</p>
 
   <div class="card">
     <div class="grid">
@@ -66,105 +70,137 @@
         <input id="elev" type="number" min="0" step="10" value="1100">
       </div>
     </div>
-    <div style="margin-top:18px">
-      <label>Bepakking (tent, kleding, eten)</label>
-      <div class="toggle" id="lugT" style="max-width:340px">
-        <button data-v="1" class="on">Mét bepakking</button>
-        <button data-v="0">Zónder</button>
+    <div class="grid" style="margin-top:18px">
+      <div>
+        <label>Rijder (kg) — voor fysica-model</label>
+        <input id="rider" type="number" min="40" step="1" placeholder="78 (jullie: 71–85)">
+        <div class="hint">+ fiets 14 kg + bagage 15 kg. Leeg = 78 kg (groepsgemiddelde).</div>
       </div>
-      <div class="hint">Zonder bepakking ≈ 12% sneller.</div>
+      <div>
+        <label>Bepakking (tent, kleding, eten)</label>
+        <div class="toggle" id="lugT">
+          <button data-v="1" class="on">Mét</button>
+          <button data-v="0">Zónder</button>
+        </div>
+        <div class="hint">Data: ×0,88 zónder. Fysica: 15 kg lichter.</div>
+      </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="result">
-      <div class="big" id="time">—</div>
-      <div class="bigsub" id="timemin"></div>
-      <div class="barwrap"><div class="bar" id="bar" style="width:0%"></div></div>
-      <div class="band" id="band">—</div>
-    </div>
-    <div class="breakdown">
-      <div class="bd"><span>Vlak-deel (afstand)</span><b id="bd1">—</b></div>
-      <div class="bd"><span>Klim-deel (hoogtemeters)</span><b id="bd2">—</b></div>
-      <div class="bd"><span>Bepakking-correctie</span><b id="bd4">—</b></div>
-      <div class="compare">
-        <span>Vlak-equivalent: <b id="eqkm" style="color:var(--txt)">—</b></span>
-        <span>Ritzwaarte 1.0 (oud): <b id="old" style="color:var(--txt)">—</b></span>
+    <div class="two">
+      <div class="pred data">
+        <div class="tag">📊 Onze data</div>
+        <div class="big" id="tData">—</div>
+        <div class="mm" id="mData"></div>
+        <div class="src">Lineaire fit op 11 ritten.<br>Best binnen ons bereik.</div>
+      </div>
+      <div class="pred phys">
+        <div class="tag">🔬 Fysica, afgesteld</div>
+        <div class="big" id="tPhys">—</div>
+        <div class="mm" id="mPhys"></div>
+        <div class="src">Vermogensmodel, op ons getuned.<br>Betrouwbaarder buiten bereik.</div>
       </div>
     </div>
+    <div class="band" id="band">—</div>
+    <div class="flag" id="flag"></div>
+    <div class="compare">
+      <span>Vlak-equivalent: <b id="eqkm" style="color:var(--txt)">—</b></span>
+      <span>Ritzwaarte 1.0 (oud): <b id="old" style="color:var(--txt)">—</b></span>
+    </div>
     <details>
-      <summary>Waarom geen temperatuur?</summary>
-      <p>De data lijkt te zeggen "warmer = sneller", maar dat is schijn: alle koude ritten waren
-         mei-2025 en die waren óók traag — waarschijnlijk door vroeg-seizoen benen/terrein, niet door
-         de kou. Het model verwart die twee. Doorgetrokken naar 34&nbsp;°C zou het onzin voorspellen
-         (sneller in de hitte). Daarom rekent deze tool alleen met afstand en hoogtemeters — de
-         variabelen die je bij het plannen tóch altijd hebt.</p>
+      <summary>Hoe verschillen de twee modellen?</summary>
+      <p><b>Onze data</b> = <code>2,515·afstand + 0,0677·hm</code> (×0,88 zónder bepakking),
+         rechtstreeks gefit op onze rittijden. Scherp binnen wat we écht reden
+         (36–80 km, 475–1242 hm), maar het trekt een rechte lijn door — buiten dat bereik
+         (bv. een korte muur of een vlakke lange dag) gaat het de mist in.</p>
+      <p><b>Fysica, afgesteld</b> = steady-state vermogensmodel (Martin e.a. 1998): rolweerstand,
+         luchtweerstand en zwaartekracht. Literatuurwaarden (Crr 0,006; CdA 0,83 m² beladen-rechtop;
+         ρ 1,18), met één fitness-knop (<b>~189 W, 1,8 W/kg</b>) afgesteld op onze ritten.
+         Gewicht = <b>rijder + fiets 14 kg + bagage 15 kg</b> (default rijder 78 kg → 107 kg beladen /
+         92 kg zónder; pas de rijder aan voor jullie 71–85 kg, dat scheelt ±8 min). Geeft ~24 km/u
+         vlak en ~550 m/u klim. Klimtijd schaalt fysisch met de hoogtemeters, dus een steile korte
+         rit krijgt eerlijk meer tijd — daar waar het data-model te optimistisch is.</p>
+      <p>Op ritten zoals wij ze reden geven beide bijna hetzelfde. Ze lopen uiteen bij ongewone
+         verhoudingen (heel steil of juist heel vlak) — dan is de fysica-schatting de betere.
+         Gewichten kloppen niet? Zeg het, dan stel ik opnieuw af.</p>
     </details>
   </div>
 
   <footer>
-    Formule (min): 2,515·afstand + 0,0677·hoogtemeters, ×0,88 zónder bepakking.<br>
-    Gefit op 11 beladen ritten (2023 + 2025), 2026-rit uitgesloten · R²=0,96 · gem. fout ≈9 min.
+    Twee onafhankelijke schattingen, beide afgesteld op 11 beladen ritten (2023 + 2025) ·
+    data-fit R²=0,96 · fysica RMSE ≈9 min.
   </footer>
 </div>
 
 <script>
-  // Ritzwaarte 2.0 — gefit op beladen ritten, tegen rittijd (de effort-proxy)
-  const A_DIST = 2.515;   // min per km
-  const B_ELEV = 0.0677;  // min per hoogtemeter
-  const LUG_NO = 0.88;    // zonder bepakking
-  let luggage = 1;
+  // ---- Model 1: lineaire fit op onze data ----
+  const A_DIST=2.515, B_ELEV=0.0677, LUG_NO=0.88;
+  // ---- Model 2: fysica (Martin e.a. 1998), op ons getuned ----
+  const PHY={P:189.1,CdA:0.826,Crr:0.006,rho:1.18,eff:0.97,g:9.81,bike:14,lug:15,s:0.06};
+  let luggage=1;
 
-  const $ = id => document.getElementById(id);
-  function fmt(min){
-    if(!isFinite(min)||min<=0) return "—";
-    const h=Math.floor(min/60), m=Math.round(min%60);
-    return h+"u"+String(m).padStart(2,"0");
+  const $=id=>document.getElementById(id);
+  const fmt=min=>(!isFinite(min)||min<=0)?"—":Math.floor(min/60)+"u"+String(Math.round(min%60)).padStart(2,"0");
+
+  function dataMin(d,e,lug){ return (A_DIST*d+B_ELEV*e)*(lug?1:LUG_NO); }
+
+  function vsolve(theta,m){ // solve v*(Fc+A*v^2)=P*eff  (bisectie)
+    const Fc=m*PHY.g*(PHY.Crr*Math.cos(theta)+Math.sin(theta)), A=0.5*PHY.rho*PHY.CdA;
+    const f=v=>v*(Fc+A*v*v)-PHY.P*PHY.eff;
+    let lo=0.05,hi=30; for(let i=0;i<60;i++){const m=(lo+hi)/2; if(f(m)>0)hi=m; else lo=m;}
+    return (lo+hi)/2;
   }
-  function signMin(x){ return (x>=0?"+":"−")+Math.abs(x).toFixed(0)+" min"; }
+  function physMin(d,e,lug,rider){
+    if(d<=0&&e<=0) return 0;
+    const m=rider+PHY.bike+(lug?PHY.lug:0), th=Math.atan(PHY.s);
+    const vf=vsolve(0,m), vc=vsolve(th,m);
+    const cr=e/Math.sin(th), flat=Math.max(d*1000-cr,0);
+    return (flat/vf+cr/vc)/60; // m / (m/s) = s ; /60 = min
+  }
 
-  // effort-banden uit de data (beladen ritten liepen 152–298 min)
   function band(min){
-    if(min<165) return ["Licht","var(--good)",   (min/165)*0.35];
-    if(min<210) return ["Gemiddeld","var(--accent)",0.35+((min-165)/45)*0.25];
-    if(min<260) return ["Zwaar","var(--warn)",   0.60+((min-210)/50)*0.25];
-    if(min<300) return ["Zeer zwaar","var(--hot)",0.85+((min-260)/40)*0.12];
-    return ["Pittig 🥵","var(--max)",1];
+    if(min<165) return ["Licht","var(--good)"];
+    if(min<210) return ["Gemiddeld","var(--accent)"];
+    if(min<260) return ["Zwaar","var(--warn)"];
+    if(min<300) return ["Zeer zwaar","var(--hot)"];
+    return ["Pittig 🥵","var(--max)"];
   }
 
   function calc(){
-    const d = parseFloat($("dist").value)||0;
-    const e = parseFloat($("elev").value)||0;
-    const flat = A_DIST*d;
-    const climb= B_ELEV*e;
-    const base = flat+climb;
-    const total= base * (luggage? 1 : LUG_NO);
-    const lugC = total - base;
+    const d=parseFloat($("dist").value)||0, e=parseFloat($("elev").value)||0;
+    const rRaw=$("rider").value.trim(), rider=rRaw===""?78:(parseFloat(rRaw)||78);
+    const td=dataMin(d,e,luggage), tp=physMin(d,e,luggage,rider);
+    $("tData").textContent=fmt(td); $("mData").textContent=td>0?Math.round(td)+" min":"";
+    $("tPhys").textContent=fmt(tp); $("mPhys").textContent=tp>0?Math.round(tp)+" min":"";
 
-    $("time").textContent   = fmt(total);
-    $("timemin").textContent= total>0 ? Math.round(total)+" min voorspelde rittijd" : "";
-    $("bd1").textContent = "+"+flat.toFixed(0)+" min";
-    $("bd2").textContent = "+"+climb.toFixed(0)+" min";
-    $("bd4").textContent = luggage? "0 min (mét)" : signMin(lugC);
+    // band op het data-model (de banden komen uit onze echte rittijden)
+    const [lbl,col]=band(td);
+    const b=$("band"); b.textContent=td>0?lbl:"—"; b.style.background=col; b.style.color="#04121f";
 
-    $("eqkm").textContent = d>0? (d + (B_ELEV/A_DIST)*e).toFixed(1)+" km" : "—";
-    $("old").textContent  = d>0? (d + 4*(e/100) + 0.5*(e/d)).toFixed(1) : "—";
+    // divergentie-vlag: buiten ons bereik lopen de modellen uiteen
+    const f=$("flag"); const inRange=d>=30&&d<=90&&e>=400&&e<=1400;
+    const diff=(td>0)?Math.abs(td-tp)/td:0;
+    if(d<=0&&e<=0){ f.className="flag"; }
+    else if(diff>0.12){
+      f.className="flag warn show";
+      f.innerHTML="⚠️ De modellen verschillen "+Math.round(diff*100)+"% — dit valt buiten onze "+
+        "gereden verhoudingen. Vertrouw hier de <b>fysica-schatting</b> ("+fmt(tp)+").";
+    } else if(!inRange){
+      f.className="flag ok show";
+      f.innerHTML="Net buiten ons normale bereik, maar de modellen zijn het eens — schatting is robuust.";
+    } else { f.className="flag"; }
 
-    const [lbl,col,frac]=band(total);
-    const bd=$("band"); bd.textContent=total>0?lbl:"—";
-    bd.style.background=col; bd.style.color="#04121f";
-    const bar=$("bar"); bar.style.width=Math.min(100,Math.max(0,frac*100))+"%";
-    bar.style.background=col;
+    $("eqkm").textContent=d>0?(d+(B_ELEV/A_DIST)*e).toFixed(1)+" km":"—";
+    $("old").textContent =d>0?(d+4*(e/100)+0.5*(e/d)).toFixed(1):"—";
   }
 
   document.querySelectorAll("#lugT button").forEach(b=>{
-    b.onclick=()=>{
-      luggage=+b.dataset.v;
+    b.onclick=()=>{ luggage=+b.dataset.v;
       document.querySelectorAll("#lugT button").forEach(x=>x.classList.remove("on"));
-      b.classList.add("on"); calc();
-    };
+      b.classList.add("on"); calc(); };
   });
-  ["dist","elev"].forEach(id=>$(id).addEventListener("input",calc));
+  ["dist","elev","rider"].forEach(id=>$(id).addEventListener("input",calc));
   calc();
 </script>
 </body>
