@@ -1,4 +1,4 @@
-# AGENT.md — building tools for this repo
+# AGENTS.md — building tools for this repo
 
 This repo (`Hopsakee/Toolstemp`) is a collection of small, single-file, in-browser
 HTML tools, served as a static site on **GitHub Pages**. If you are an AI agent (or a
