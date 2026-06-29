@@ -99,3 +99,10 @@ title       = "Ritzwaarte 2.0"
 icon        = "📊"
 category    = "ccv"
 description = "Schat de zwaarte van een rit met bepakking op basis van afstand en hoogtemeters — gefit op de ritdata van 2023 en 2025, met de rittijd als effort-proxy."
+
+[[tool]]
+file        = "ccv-hoogteprofiel.html"
+title       = "GPX hoogteprofiel"
+icon        = "⛰️"
+category    = "ccv"
+description = "Upload een GPX en bekijk het traject als rode lijn op de kaart, met daaronder een hoogteprofiel gekleurd naar steilheid (donkerblauw daling → donkerrood steile klim). Inzoombaar met level-of-detail, de kaart zoomt mee; tik op het profiel voor het hellingspercentage op die plek."
