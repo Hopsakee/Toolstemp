@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>GPX hoogteprofiel — fiets</title>
+<!--
+  ccv-hoogteprofiel.html — single-file GPX fiets-hoogteprofiel viewer.
+  Methodologie: Simon Willison (https://simonwillison.net/2025/Dec/10/html-tools/).
+  Eén bestand, geen build, alleen CDN (Leaflet). GPX via native DOMParser, profiel
+  hand-getekend op Canvas. Geen server / geen SQLite: alle level-of-detail wordt
+  client-side voorberekend in geheugen.
+
+  Prompt (Jelle, 2026-06-29): fietsapp, GPX uploaden, traject als rode lijn op de kaart
+  (boven, 15% padding), hoogteprofiel eronder met hellingspercentages als kleur
+  (donkerblauw daling → donkerrood steile klim), inzoombaar met LOD (~50m fijn / grover
+  uitgezoomd), kaart zoomt mee, tik op profiel toont helling + zet punt op de kaart.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root {
+    --bg: #11161c; --panel: #1b232c; --ink: #e8edf2; --muted: #9aa7b4;
+    --accent: #e63946; --line: #2b3742;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--ink); }
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  header { flex: 0 0 auto; display: flex; align-items: center; gap: .5rem;
+    padding: .45rem .6rem; background: var(--panel); border-bottom: 1px solid var(--line);
+    font-size: .9rem; }
+  header .title { font-weight: 600; white-space: nowrap; }
+  header .fname { color: var(--muted); overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; flex: 1 1 auto; min-width: 0; }
+  header button, header label.btn { background: #28323d; color: var(--ink);
+    border: 1px solid var(--line); border-radius: .5rem; padding: .4rem .6rem;
+    font-size: .85rem; cursor: pointer; }
+  header button:disabled { opacity: .4; cursor: default; }
+  input[type=file] { display: none; }
+
+  #map { flex: 1 1 56%; min-height: 0; background: #0c1014; }
+  #profile-wrap { flex: 0 0 42vh; position: relative; background: var(--panel);
+    border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+  #legend { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: .15rem .5rem;
+    padding: .35rem .55rem; font-size: .68rem; color: var(--muted); align-items: center; }
+  #legend .item { display: inline-flex; align-items: center; gap: .25rem; }
+  #legend .sw { width: .8rem; height: .8rem; border-radius: 2px; display: inline-block; }
+  #canvas-box { position: relative; flex: 1 1 auto; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none;
+    display: block; }
+  #readout { position: absolute; top: .4rem; left: .5rem; right: .5rem;
+    background: rgba(12,16,20,.82); border: 1px solid var(--line); border-radius: .5rem;
+    padding: .35rem .55rem; font-size: .8rem; pointer-events: none; display: none;
+    line-height: 1.35; }
+  #readout b { color: var(--ink); } #readout .g { color: var(--accent); font-weight: 700; }
+
+  #drop { position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1rem; text-align: center;
+    padding: 2rem; background: var(--bg); z-index: 500; }
+  #drop.dragover { background: #16202b; outline: 2px dashed var(--accent); outline-offset: -1rem; }
+  #drop h1 { font-size: 1.2rem; margin: 0; } #drop p { color: var(--muted); margin: 0; max-width: 28rem; }
+  #drop label.btn { background: var(--accent); color: #fff; border: none; border-radius: .6rem;
+    padding: .7rem 1.1rem; font-size: 1rem; cursor: pointer; }
+  .err { color: #ffb4ad; }
+  .leaflet-container { background: #0c1014; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <span class="title">🚵 Hoogteprofiel</span>
+    <span class="fname" id="fname">geen bestand</span>
+    <button id="resetZoom" disabled title="Volledig uitzoomen">⤢ uit</button>
+    <label class="btn" for="file2">GPX</label>
+    <input type="file" id="file2" accept=".gpx,application/gpx+xml">
+  </header>
+  <div id="map"></div>
+  <div id="profile-wrap">
+    <div id="legend"></div>
+    <div id="canvas-box">
+      <canvas id="profile"></canvas>
+      <div id="readout"></div>
+    </div>
+  </div>
+  <div id="drop">
+    <h1>GPX hoogteprofiel</h1>
+    <p>Upload een <b>.gpx</b>-bestand van je fietsrit. Bovenin de kaart, eronder het
+       hoogteprofiel gekleurd naar steilheid. Tik op het profiel voor het hellings­percentage;
+       sleep een stuk om in te zoomen. Alles draait lokaal in je browser.</p>
+    <label class="btn" for="file1">Kies een GPX-bestand</label>
+    <input type="file" id="file1" accept=".gpx,application/gpx+xml">
+    <p id="drop-err" class="err"></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+"use strict";
+
+// ── Hellingsklassen (wielren-standaard, %) ──────────────────────────────────
+// ≤-8 donkerblauw · -8..-3 lichtblauw · -3..3 groen · 3..6 geel · 6..9 oranje
+//  · 9..12 rood · >12 donkerrood
+const BUCKETS = [
+  { max: -8,       color: "#08306b", label: "≤ −8" },
+  { max: -3,       color: "#6baed6", label: "−8…−3" },
+  { max:  3,       color: "#2ca25f", label: "−3…3" },
+  { max:  6,       color: "#f7d63e", label: "3…6" },
+  { max:  9,       color: "#fc8d3c", label: "6…9" },
+  { max:  12,      color: "#e63320", label: "9…12" },
+  { max:  Infinity,color: "#7d0a02", label: "> 12" },
+];
+function slopeColor(s) {
+  for (const b of BUCKETS) if (s <= b.max) return b.color;
+  return BUCKETS[BUCKETS.length - 1].color;
+}
+
+// LOD-tiers: vaste segment-lengtes (m) die bij inladen worden voorberekend.
+const TIER_SPACINGS = [50, 100, 250, 500, 1000, 2000, 5000];
+const MIN_TIER_SPACING_M = 10;   // nooit fijner dan dit (zeer korte routes / ver ingezoomd)
+
+// ── State ───────────────────────────────────────────────────────────────────
+let pts = [];          // [{lat, lon, ele, d}]  d = cumulatieve afstand (m)
+let totalDist = 0;     // m
+let tiers = {};        // spacing -> [{d0,d1,ele0,ele1,slope}]
+let tierKeys = [];     // gesorteerde spacings (1× berekend in buildAllTiers)
+let hasEle = false;
+let view = { start: 0, end: 0 };   // zichtbare afstand-range (m)
+let map, trackLine, mapMarker;
+let dpr = 1;   // echte waarde wordt in resizeCanvas gezet
+
+const $ = (id) => document.getElementById(id);
+
+// ── GPX parsen ───────────────────────────────────────────────────────────────
+const lerp = (a, b, t) => a + t * (b - a);
+function haversine(a, b) {
+  const R = 6371000, toRad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * toRad, dLon = (b.lon - a.lon) * toRad;
+  const la1 = a.lat * toRad, la2 = b.lat * toRad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function parseGPX(text) {
+  const doc = new DOMParser().parseFromString(text, "application/xml");
+  if (doc.querySelector("parsererror")) throw new Error("Dit is geen geldig XML/GPX-bestand.");
+  // Alle trackpunten over alle <trk>/<trkseg> aaneengeregen (ISC-7).
+  let nodes = doc.getElementsByTagName("trkpt");
+  if (!nodes.length) nodes = doc.getElementsByTagName("rtept");   // route i.p.v. track
+  if (!nodes.length) throw new Error("Geen <trkpt>/<rtept> punten in de GPX gevonden.");
+  const out = [];
+  let eleCount = 0;
+  for (const n of nodes) {
+    const lat = parseFloat(n.getAttribute("lat"));
+    const lon = parseFloat(n.getAttribute("lon"));
+    if (!isFinite(lat) || !isFinite(lon)) continue;
+    const eleNode = n.getElementsByTagName("ele")[0];
+    let ele = eleNode ? parseFloat(eleNode.textContent) : NaN;
+    if (isFinite(ele)) eleCount++; else ele = NaN;
+    out.push({ lat, lon, ele });
+  }
+  if (out.length < 2) throw new Error("Te weinig geldige trackpunten (minimaal 2 nodig).");
+  hasEle = eleCount >= 2;
+  // Cumulatieve afstand (haversine). Eerlijk: hoogte nooit verzinnen — alleen lineair
+  // interpoleren over kleine gaten zodat het profiel niet breekt; ontbreekt alle ele
+  // dan tonen we een melding en geen profiel (ISC-6).
+  out[0].d = 0;
+  for (let i = 1; i < out.length; i++) out[i].d = out[i - 1].d + haversine(out[i - 1], out[i]);
+  if (hasEle) fillEleGaps(out);
+  return out;
+}
+
+// Lineaire interpolatie van ontbrekende ele-waarden tussen bekende punten (geen fantasie:
+// alleen tússen gemeten waarden; rand-gaten krijgen de dichtstbijzijnde gemeten waarde).
+function fillEleGaps(arr) {
+  // O(n): prev/next gemeten index per punt (twee sweeps i.p.v. een geneste scan).
+  const n = arr.length, prev = new Array(n), next = new Array(n);
+  let last = -1;
+  for (let i = 0; i < n; i++) { prev[i] = last; if (isFinite(arr[i].ele)) last = i; }
+  let nxt = -1;
+  for (let i = n - 1; i >= 0; i--) { next[i] = nxt; if (isFinite(arr[i].ele)) nxt = i; }
+  for (let k = 0; k < n; k++) {
+    if (isFinite(arr[k].ele)) continue;
+    const lo = prev[k], hi = next[k];
+    if (lo === -1 && hi === -1) return;               // geen enkele meting
+    if (lo === -1) arr[k].ele = arr[hi].ele;          // rand-gat: dichtstbijzijnde meting
+    else if (hi === -1) arr[k].ele = arr[lo].ele;
+    else {                                            // tússen metingen: lineair interpoleren
+      const t = (arr[k].d - arr[lo].d) / ((arr[hi].d - arr[lo].d) || 1);
+      arr[k].ele = lerp(arr[lo].ele, arr[hi].ele, t);
+    }
+  }
+}
+
+// Bracket {lo, hi, t} voor cumulatieve afstand d — binaire zoek op één plek, zodat
+// eleAt en latlngAt niet allebei dezelfde rand-/zoeklogica dupliceren.
+function bracketAt(d) {
+  if (d <= 0) return { lo: 0, hi: 0, t: 0 };
+  if (d >= totalDist) { const n = pts.length - 1; return { lo: n, hi: n, t: 0 }; }
+  let lo = 0, hi = pts.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid].d <= d) lo = mid; else hi = mid; }
+  return { lo, hi, t: (d - pts[lo].d) / ((pts[hi].d - pts[lo].d) || 1) };
+}
+function eleAt(d) { const b = bracketAt(d); return lerp(pts[b.lo].ele, pts[b.hi].ele, b.t); }
+function latlngAt(d) {
+  const b = bracketAt(d);
+  return [lerp(pts[b.lo].lat, pts[b.hi].lat, b.t), lerp(pts[b.lo].lon, pts[b.hi].lon, b.t)];
+}
+
+// ── LOD: tiers voorberekenen (ISC-20) ────────────────────────────────────────
+function buildTier(spacing) {
+  const buckets = [];
+  for (let start = 0; start < totalDist; start += spacing) {
+    const end = Math.min(start + spacing, totalDist);
+    if (end - start < 1) break;
+    const e0 = eleAt(start), e1 = eleAt(end);
+    let slope = ((e1 - e0) / (end - start)) * 100;
+    if (!isFinite(slope)) slope = 0;
+    buckets.push({ d0: start, d1: end, ele0: e0, ele1: e1, slope });
+  }
+  return buckets;
+}
+function buildAllTiers() {
+  tiers = {};
+  for (const sp of TIER_SPACINGS) if (sp < totalDist) tiers[sp] = buildTier(sp);
+  // Garandeer minstens één tier, ook voor zeer korte routes.
+  if (!Object.keys(tiers).length) { const sp = Math.max(MIN_TIER_SPACING_M, totalDist / 50); tiers[sp] = buildTier(sp); }
+  tierKeys = Object.keys(tiers).map(Number).sort((a, b) => a - b);
+}
+// Kies de fijnste tier waarvan de zichtbare segmenten ~1 per pixel niet overschrijden.
+function tierForView(cssWidthPx) {
+  const target = Math.max((view.end - view.start) / Math.max(cssWidthPx, 50), MIN_TIER_SPACING_M);
+  for (const sp of tierKeys) if (sp >= target) return { sp, buckets: tiers[sp] };
+  const sp = tierKeys[tierKeys.length - 1];
+  return { sp, buckets: tiers[sp] };
+}
+
+// ── Kaart ─────────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map("map", { zoomControl: true, attributionControl: true });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bijdragers',
+  }).addTo(map);
+}
+// fitBounds met 15% padding rondom de bbox (ISC-11).
+function fitToRange(d0, d1, animate) {
+  const seg = pts.filter((p) => p.d >= d0 - 1 && p.d <= d1 + 1);
+  const latlngs = (seg.length >= 2 ? seg : pts).map((p) => [p.lat, p.lon]);
+  const b = L.latLngBounds(latlngs);
+  map.fitBounds(b.pad(0.15), { animate: !!animate });
+}
+function clearMarker() { if (mapMarker) { map.removeLayer(mapMarker); mapMarker = null; } }
+// Profiel + cursor horen altijd samen te tekenen (drawProfile wist het canvas eerst).
+function render() { drawProfile(); drawCursor(); }
+
+// ── Profiel tekenen (Canvas) ───────────────────────────────────────────────────
+const canvas = $("profile"), ctx = canvas.getContext("2d");
+const PAD = { l: 42, r: 10, t: 10, b: 22 };
+let geom = null;   // bewaarde teken-geometrie voor hit-testing
+
+function resizeCanvas() {
+  const box = $("canvas-box").getBoundingClientRect();
+  if (box.width < 2 || box.height < 2) return;   // layout nog niet stabiel
+  dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.round(box.width * dpr);
+  canvas.height = Math.round(box.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawProfile();
+}
+
+function drawProfile() {
+  if (!pts.length) return;
+  const cssW = canvas.width / dpr, cssH = canvas.height / dpr;
+  ctx.clearRect(0, 0, cssW, cssH);
+  if (!hasEle) {
+    ctx.fillStyle = "#ffb4ad"; ctx.font = "14px system-ui"; ctx.textAlign = "center";
+    ctx.fillText("Deze GPX bevat geen hoogtedata — geen profiel mogelijk.", cssW / 2, cssH / 2);
+    geom = null; return;
+  }
+  const plotW = cssW - PAD.l - PAD.r, plotH = cssH - PAD.t - PAD.b;
+  const { buckets } = tierForView(plotW);
+  const vis = buckets.filter((b) => b.d1 > view.start && b.d0 < view.end);
+  if (!vis.length) { geom = null; return; }
+
+  // y-autoscale op de zichtbare range.
+  let eMin = Infinity, eMax = -Infinity;
+  for (const b of vis) { eMin = Math.min(eMin, b.ele0, b.ele1); eMax = Math.max(eMax, b.ele0, b.ele1); }
+  const padE = Math.max((eMax - eMin) * 0.08, 2); eMin -= padE; eMax += padE;
+
+  const X = (d) => PAD.l + ((d - view.start) / (view.end - view.start)) * plotW;
+  const Y = (e) => PAD.t + (1 - (e - eMin) / ((eMax - eMin) || 1)) * plotH;
+  const yBase = PAD.t + plotH;
+
+  // Gekleurde segmenten (ISC-14/15).
+  for (const b of vis) {
+    const x0 = X(Math.max(b.d0, view.start)), x1 = X(Math.min(b.d1, view.end));
+    ctx.fillStyle = slopeColor(b.slope);
+    ctx.beginPath();
+    ctx.moveTo(x0, yBase); ctx.lineTo(x0, Y(b.ele0)); ctx.lineTo(x1, Y(b.ele1)); ctx.lineTo(x1, yBase);
+    ctx.closePath(); ctx.fill();
+  }
+  // Bovenrand-lijn voor scherpte.
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1; ctx.beginPath();
+  vis.forEach((b, i) => { const x = X(Math.max(b.d0, view.start)); i ? ctx.lineTo(x, Y(b.ele0)) : ctx.moveTo(x, Y(b.ele0)); });
+  const last = vis[vis.length - 1]; ctx.lineTo(X(Math.min(last.d1, view.end)), Y(last.ele1)); ctx.stroke();
+
+  // Assen (ISC-16/17).
+  ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.fillStyle = "#9aa7b4";
+  ctx.font = "10px system-ui"; ctx.lineWidth = 1;
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  const yticks = 4;
+  for (let i = 0; i <= yticks; i++) {
+    const e = eMin + (i / yticks) * (eMax - eMin), y = Y(e);
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(cssW - PAD.r, y); ctx.stroke();
+    ctx.fillText(Math.round(e) + " m", PAD.l - 4, y);
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  const xticks = 5;
+  for (let i = 0; i <= xticks; i++) {
+    const d = view.start + (i / xticks) * (view.end - view.start), x = X(d);
+    ctx.fillText((d / 1000).toFixed(d < 10000 ? 1 : 0) + " km", x, yBase + 4);
+  }
+  geom = { X, Y, yBase, plotW, plotH, eMin, eMax, buckets };
+}
+
+// ── Interactie: tik = inspecteren, sleep = inzoomen ──────────────────────────
+let drag = null;   // {x0, moved}
+function distAtX(px) {
+  return view.start + Math.min(Math.max((px - PAD.l) / (geom ? geom.plotW : 1), 0), 1) * (view.end - view.start);
+}
+function bucketAtDist(d) {
+  // Lees de tier die ook ECHT getekend is (geom.buckets) zodat readout-% en kleur matchen.
+  if (!geom || !geom.buckets) return null;
+  return geom.buckets.find((b) => d >= b.d0 && d <= b.d1) || geom.buckets[geom.buckets.length - 1];
+}
+function showAt(d) {
+  if (!hasEle) return;
+  const b = bucketAtDist(d);
+  if (!b) return;
+  const e = eleAt(d), [lat, lon] = latlngAt(d);
+  const r = $("readout");
+  r.style.display = "block";
+  r.innerHTML = `<b>${(d / 1000).toFixed(2)} km</b> · <b>${Math.round(e)} m</b> · `
+    + `helling <span class="g">${b.slope >= 0 ? "+" : ""}${b.slope.toFixed(1)}%</span>`;
+  clearMarker();
+  mapMarker = L.circleMarker([lat, lon], { radius: 7, color: "#fff", weight: 2,
+    fillColor: "#e63946", fillOpacity: 1 }).addTo(map);
+  markX = d; render();
+}
+let markX = null;
+function drawCursor() {
+  if (markX == null || !geom) return;
+  const x = geom.X(markX);
+  if (x < PAD.l || x > PAD.l + geom.plotW) return;
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, geom.yBase); ctx.stroke(); ctx.setLineDash([]);
+}
+
+canvas.addEventListener("pointerdown", (ev) => {
+  if (!pts.length) return;
+  canvas.setPointerCapture(ev.pointerId);
+  drag = { x0: ev.offsetX, x1: ev.offsetX, moved: false };
+});
+canvas.addEventListener("pointermove", (ev) => {
+  if (!drag) return;
+  drag.x1 = ev.offsetX;
+  if (Math.abs(drag.x1 - drag.x0) > 6) drag.moved = true;
+  if (drag.moved) { render();
+    ctx.fillStyle = "rgba(230,57,70,.18)"; ctx.strokeStyle = "rgba(230,57,70,.7)";
+    const x = Math.min(drag.x0, drag.x1), w = Math.abs(drag.x1 - drag.x0);
+    ctx.fillRect(x, PAD.t, w, geom ? geom.plotH : 0);
+    ctx.strokeRect(x, PAD.t, w, geom ? geom.plotH : 0);
+  }
+});
+canvas.addEventListener("pointerup", (ev) => {
+  if (!drag) return;
+  if (drag.moved) {                         // sleep → inzoomen (ISC-21/24/26)
+    const da = distAtX(Math.min(drag.x0, drag.x1)), db = distAtX(Math.max(drag.x0, drag.x1));
+    if (db - da > 20) { view.start = da; view.end = db; $("resetZoom").disabled = false;
+      fitToRange(da, db, true); render(); }
+    else render();
+  } else {                                   // tik → inspecteren (ISC-27/28/29/30)
+    showAt(distAtX(ev.offsetX));
+  }
+  drag = null;
+});
+canvas.addEventListener("pointercancel", () => { drag = null; render(); });
+$("resetZoom").addEventListener("click", () => {
+  view.start = 0; view.end = totalDist; $("resetZoom").disabled = true;
+  markX = null; $("readout").style.display = "none"; clearMarker();
+  fitToRange(0, totalDist, true); render();
+});
+
+// ── Legenda ────────────────────────────────────────────────────────────────────
+function renderLegend() {
+  $("legend").innerHTML = "helling&nbsp; " + BUCKETS.map((b) =>
+    `<span class="item"><span class="sw" style="background:${b.color}"></span>${b.label}%</span>`).join("");
+}
+
+// ── Laden ────────────────────────────────────────────────────────────────────
+function loadText(text, name) {
+  try {
+    pts = parseGPX(text);
+  } catch (e) {
+    $("drop-err").textContent = e.message; return;
+  }
+  totalDist = pts[pts.length - 1].d;
+  if (!(totalDist > 0)) {                            // alle punten op dezelfde plek
+    $("drop").style.display = "flex";
+    $("drop-err").textContent = "GPX heeft geen afstand — alle punten liggen op dezelfde plek.";
+    return;
+  }
+  view = { start: 0, end: totalDist };
+  buildAllTiers();
+  $("fname").textContent = name || "rit.gpx";
+  $("resetZoom").disabled = true;
+  $("drop").style.display = "none";
+
+  if (!map) initMap();
+  if (trackLine) map.removeLayer(trackLine);
+  clearMarker();
+  markX = null;
+  trackLine = L.polyline(pts.map((p) => [p.lat, p.lon]), { color: "#e63946", weight: 4, opacity: .9 }).addTo(map);
+  fitToRange(0, totalDist, false);
+  map.invalidateSize();
+
+  renderLegend();
+  resizeCanvas();
+  if (!hasEle) $("readout").style.display = "none";
+}
+function loadFile(file) {
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => loadText(rd.result, file.name);
+  rd.onerror = () => { $("drop-err").textContent = "Kon het bestand niet lezen."; };
+  rd.readAsText(file);
+}
+
+["file1", "file2"].forEach((id) => $(id).addEventListener("change", (e) => loadFile(e.target.files[0])));
+
+// Drag & drop op het startscherm.
+const dropEl = $("drop");
+["dragover", "dragenter"].forEach((t) => dropEl.addEventListener(t, (e) => { e.preventDefault(); dropEl.classList.add("dragover"); }));
+["dragleave", "drop"].forEach((t) => dropEl.addEventListener(t, (e) => { e.preventDefault(); dropEl.classList.remove("dragover"); }));
+dropEl.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+let resizeRAF = 0;
+window.addEventListener("resize", () => {
+  if (resizeRAF) return;                            // coalesce resize-storms (mobiel url-bar)
+  resizeRAF = requestAnimationFrame(() => { resizeRAF = 0; if (map) map.invalidateSize(); resizeCanvas(); });
+});
+
+// Hash-deeplink voor automatisch laden van een test-GPX (?gpx=URL, CORS vereist).
+(function () {
+  const u = new URLSearchParams(location.search).get("gpx");
+  if (u) fetch(u).then((r) => r.text()).then((t) => loadText(t, u.split("/").pop()))
+    .catch(() => { $("drop-err").textContent = "Kon de GPX-URL niet laden (CORS of netwerk)."; });
+})();
+</script>
+</body>
+</html>
