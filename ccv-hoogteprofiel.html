@@ -15,6 +15,11 @@
   (boven, 15% padding), hoogteprofiel eronder met hellingspercentages als kleur
   (donkerblauw daling → donkerrood steile klim), inzoombaar met LOD (~50m fijn / grover
   uitgezoomd), kaart zoomt mee, tik op profiel toont helling + zet punt op de kaart.
+
+  Prompt (Jelle, 2026-06-30): voeg iPhone-GPS toe — toon de huidige locatie live op de
+  kaart (blauwe "jij bent hier"-punt + nauwkeurigheidscirkel) en snap naar het
+  dichtstbijzijnde routepunt, zodat km/hoogte/helling verschijnen net zoals bij een
+  handmatige tik. Native navigator.geolocation, vereist HTTPS (GitHub Pages). Eén bestand.
 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
@@ -39,6 +44,7 @@
     border: 1px solid var(--line); border-radius: .5rem; padding: .4rem .6rem;
     font-size: .85rem; cursor: pointer; }
   header button:disabled { opacity: .4; cursor: default; }
+  header button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
   input[type=file] { display: none; }
 
   #map { flex: 1 1 56%; min-height: 0; background: #0c1014; }
@@ -73,6 +79,7 @@
   <header>
     <span class="title">🚵 Hoogteprofiel</span>
     <span class="fname" id="fname">geen bestand</span>
+    <button id="gps" disabled title="Toon mijn locatie (GPS)">📍 GPS</button>
     <button id="resetZoom" disabled title="Volledig uitzoomen">⤢ uit</button>
     <label class="btn" for="file2">GPX</label>
     <input type="file" id="file2" accept=".gpx,application/gpx+xml">
@@ -130,7 +137,11 @@ let tierKeys = [];     // gesorteerde spacings (1× berekend in buildAllTiers)
 let hasEle = false;
 let view = { start: 0, end: 0 };   // zichtbare afstand-range (m)
 let map, trackLine, mapMarker;
+let gpsWatch = null, gpsMarker = null, gpsAcc = null;   // live GPS: watch-id + "jij bent hier"-punt + nauwkeurigheidscirkel
+let gpsPrevD = null;   // vorige gesnapte afstand — voor continuïteits-bias bij haarspeldbochten
+let gpsActive = false; // gebruikers-INTENTIE (knop aan); de echte watch loopt alleen als de pagina zichtbaar is
 let dpr = 1;   // echte waarde wordt in resizeCanvas gezet
+const OFF_ROUTE_M = 25;   // pas vanaf deze afstand tot de route melden we "N m van route"
 
 const $ = (id) => document.getElementById(id);
 
@@ -395,6 +406,96 @@ $("resetZoom").addEventListener("click", () => {
   fitToRange(0, totalDist, true); render();
 });
 
+// ── Live locatie (iPhone-GPS) ────────────────────────────────────────────────
+// Snap de actuele positie naar het dichtstbijzijnde routepunt en toon km/hoogte/
+// helling, net als een handmatige tik (showAt). De blauwe "jij bent hier"-punt staat
+// op de ECHTE positie; de readout/cursor volgen het gesnapte routepunt. Native
+// navigator.geolocation, geen tracking-server. Vereist een secure context (HTTPS).
+function nearestDistOnRoute(lat, lon, prevD) {
+  const here = { lat, lon };
+  let bestD = 0, bestOff = Infinity, bestScore = Infinity;
+  for (const p of pts) {
+    const o = haversine(here, p);
+    // Continuïteits-bias: straf grote sprongen t.o.v. de vorige fix. Op een haarspeldbocht
+    // liggen het op- en afgaande been vaak < GPS-nauwkeurigheid (10–20 m) uit elkaar; zónder
+    // bias snapt het naar het verkeerde, tegengesteld lopende been en wisselt de helling van
+    // teken. Cap op 150 m zodat een échte sprong (GPS na een tunnel) alsnog kan winnen.
+    const pen = prevD == null ? 0 : Math.min(Math.abs(p.d - prevD) * 0.1, 150);
+    const score = o + pen;
+    if (score < bestScore) { bestScore = score; bestOff = o; bestD = p.d; }
+  }
+  return { d: bestD, off: bestOff };   // off = afstand tot de route (m)
+}
+
+function gpsMessage(html) { const r = $("readout"); r.style.display = "block"; r.innerHTML = html; }
+
+function showGPS(lat, lon, acc) {
+  if (!map) return;
+  // 1) blauwe "jij bent hier"-punt + nauwkeurigheidscirkel op de echte positie.
+  if (!gpsMarker) gpsMarker = L.circleMarker([lat, lon], { radius: 8, color: "#fff", weight: 2,
+        fillColor: "#2a7fff", fillOpacity: 1 }).addTo(map);
+  else gpsMarker.setLatLng([lat, lon]);
+  if (gpsAcc) map.removeLayer(gpsAcc);
+  gpsAcc = L.circle([lat, lon], { radius: acc || 0, color: "#2a7fff", weight: 1,
+        opacity: .4, fillColor: "#2a7fff", fillOpacity: .08 }).addTo(map);
+  // 2) volg alleen als de punt buiten beeld dreigt te raken (niet rukken tijdens inspecteren).
+  if (!map.getBounds().pad(-0.1).contains([lat, lon])) map.panTo([lat, lon], { animate: true });
+  // 3) snap naar de route en toon km/hoogte/helling als bij een handmatige tik.
+  const { d, off } = nearestDistOnRoute(lat, lon, gpsPrevD);
+  gpsPrevD = d;
+  markX = d; render();
+  const offTxt = off > OFF_ROUTE_M ? ` · <span style="color:var(--muted)">${Math.round(off)} m van route</span>` : "";
+  if (!hasEle) { gpsMessage(`📍 <b>${(d / 1000).toFixed(2)} km</b> · geen hoogtedata${offTxt}`); return; }
+  const b = bucketAtDist(d), e = eleAt(d);
+  const g = b ? `helling <span class="g">${b.slope >= 0 ? "+" : ""}${b.slope.toFixed(1)}%</span>` : "";
+  gpsMessage(`📍 <b>${(d / 1000).toFixed(2)} km</b> · <b>${Math.round(e)} m</b> · ${g}${offTxt}`);
+}
+
+function onGPSFix(pos) { showGPS(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); }
+function onGPSErr(err) {
+  const msg = err.code === 1 ? "Locatietoegang geweigerd — sta locatie toe in je browser."
+            : err.code === 2 ? "Locatie niet beschikbaar."
+            : err.code === 3 ? "GPS-timeout — probeer buiten of opnieuw."
+            : "GPS-fout.";
+  gpsMessage(`<span style="color:#ffb4ad">📍 ${msg}</span>`);
+  // Codes 2 (niet beschikbaar) en 3 (timeout) zijn op iOS vaak tijdelijk (tunnel, koude start):
+  // melden maar de watch LATEN lopen. Alleen bij geweigerde toestemming (1) volledig stoppen.
+  if (err.code === 1) stopGPS();
+}
+
+// ── Watch-levenscyclus: INTENTIE (gpsActive, de knop) vs de ECHTE watch ──────
+// De watch loopt UITSLUITEND zolang de pagina zichtbaar is. Wissel je naar een andere app
+// of valt het scherm in slaap (op de fiets gebeurt dat continu), dan pauzeert de watch en
+// gebruikt de GPS dus geen stroom; kom je terug en kijk je weer, dan hervat hij vanzelf.
+// "Alleen bijwerken als ik kijk" = precies dit.
+function beginWatch() {
+  if (!gpsActive || gpsWatch != null || document.hidden || !pts.length) return;
+  gpsWatch = navigator.geolocation.watchPosition(onGPSFix, onGPSErr,
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });   // maximumAge 0: nooit een verouderde fix voor een rijdende fietser
+}
+function endWatch() {   // pauzeer de watch, behoud intentie + markers
+  if (gpsWatch != null) { navigator.geolocation.clearWatch(gpsWatch); gpsWatch = null; }
+}
+function startGPS() {   // knop AAN
+  if (!("geolocation" in navigator)) { gpsMessage(`<span style="color:#ffb4ad">📍 Geen GPS in deze browser.</span>`); return; }
+  if (!pts.length) return;
+  gpsActive = true;
+  $("gps").classList.add("on"); $("gps").textContent = "📍 GPS…";
+  gpsMessage("📍 zoeken…");   // eerste fix kan op iOS 5–20 s duren — toon dat het bezig is
+  beginWatch();
+}
+function stopGPS() {   // knop UIT / volledige reset
+  gpsActive = false;
+  endWatch();
+  gpsPrevD = null;
+  if (gpsMarker) { map.removeLayer(gpsMarker); gpsMarker = null; }
+  if (gpsAcc) { map.removeLayer(gpsAcc); gpsAcc = null; }
+  $("gps").classList.remove("on"); $("gps").textContent = "📍 GPS";
+}
+$("gps").addEventListener("click", () => { gpsActive ? stopGPS() : startGPS(); });
+// Pauzeer/hervat de GPS op zichtbaarheid: weg = geen stroom, terug = vanzelf weer live.
+document.addEventListener("visibilitychange", () => { document.hidden ? endWatch() : beginWatch(); });
+
 // ── Legenda ────────────────────────────────────────────────────────────────────
 function renderLegend() {
   $("legend").innerHTML = "helling&nbsp; " + BUCKETS.map((b) =>
@@ -416,13 +517,19 @@ function loadText(text, name) {
   }
   view = { start: 0, end: totalDist };
   buildAllTiers();
+  // Bewaar de rit lokaal zodat iOS-Safari hem na het wegleggen van het tabblad (≈ na enkele
+  // minuten op de achtergrond) bij terugkomst automatisch herstelt — geen opnieuw uploaden.
+  try { localStorage.setItem("ccv-hp-gpx", JSON.stringify({ name: name || "rit.gpx", text })); }
+  catch (_) { /* quota of private mode: de rit werkt, blijft alleen niet bewaard */ }
   $("fname").textContent = name || "rit.gpx";
   $("resetZoom").disabled = true;
+  $("gps").disabled = false;
   $("drop").style.display = "none";
 
   if (!map) initMap();
   if (trackLine) map.removeLayer(trackLine);
   clearMarker();
+  stopGPS();          // verse rit: stop een lopende GPS-watch en wis oude locatie-markers
   markX = null;
   trackLine = L.polyline(pts.map((p) => [p.lat, p.lon]), { color: "#e63946", weight: 4, opacity: .9 }).addTo(map);
   fitToRange(0, totalDist, false);
@@ -457,8 +564,13 @@ window.addEventListener("resize", () => {
 // Hash-deeplink voor automatisch laden van een test-GPX (?gpx=URL, CORS vereist).
 (function () {
   const u = new URLSearchParams(location.search).get("gpx");
-  if (u) fetch(u).then((r) => r.text()).then((t) => loadText(t, u.split("/").pop()))
-    .catch(() => { $("drop-err").textContent = "Kon de GPX-URL niet laden (CORS of netwerk)."; });
+  if (u) { fetch(u).then((r) => r.text()).then((t) => loadText(t, u.split("/").pop()))
+    .catch(() => { $("drop-err").textContent = "Kon de GPX-URL niet laden (CORS of netwerk)."; }); return; }
+  // Geen ?gpx= → probeer de laatst geladen rit te herstellen (zie localStorage in loadText).
+  try {
+    const saved = localStorage.getItem("ccv-hp-gpx");
+    if (saved) { const o = JSON.parse(saved); if (o && o.text) loadText(o.text, o.name); }
+  } catch (_) { /* niets te herstellen */ }
 })();
 </script>
 </body>
