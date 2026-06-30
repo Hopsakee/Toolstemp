@@ -574,11 +574,14 @@ function wrapRange(root, start, end, color, id){
     const len=n.nodeValue.length, ns=total, ne=total+len;
     if(ne>start && ns<end){
       const a=Math.max(0,start-ns), b=Math.min(len,end-ns);
-      if(b>a) segs.push({node:n,a,b});
+      // Skip empty AND whitespace-only slices (e.g. the newline text node between
+      // block elements) — wrapping those creates stray, invisible inter-block spans.
+      if(b>a && n.nodeValue.slice(a,b).trim()) segs.push({node:n,a,b});
     }
     total=ne;
     if(total>=end) break;
   }
+  let wrapped=0;
   for(let i=segs.length-1;i>=0;i--){
     const s=segs[i];
     const range=root.ownerDocument.createRange();
@@ -586,9 +589,13 @@ function wrapRange(root, start, end, color, id){
     const span=root.ownerDocument.createElement('span');
     span.className='pa-hl pa-color-'+color;
     span.setAttribute('data-pa-id', id);
-    try{ range.surroundContents(span); }catch(e){}
+    // Each range stays inside ONE text node, so surroundContents can't throw on a
+    // crossed element boundary. If it ever does, surface it — a silently swallowed
+    // wrap is exactly how a multi-week highlight regression hid in the report viewer.
+    try{ range.surroundContents(span); wrapped++; }
+    catch(e){ console.warn('[html-annotator] highlight wrap failed for', id, e); }
   }
-  return segs.length>0;
+  return wrapped>0;
 }
 
 function reAnchor(a, full){

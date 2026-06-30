@@ -678,45 +678,58 @@
     if (!el) return false;
     const target = ann.text;
     if (!target) return false;
+    // Collect the paragraph's text-node stream (skipping existing highlights +
+    // the ¶ para-num), then find the target ACROSS node boundaries. The old code
+    // did indexOf within each single node, so an annotation whose text spans an
+    // inline element (a **bold** / *italic* / `code` run) failed to re-anchor on
+    // reload even though it was created fine — a silent create-succeeds-reload-loses.
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    const textNodes = [];
+    const nodes = [];
     let n;
     while ((n = walker.nextNode())) {
       if (n.parentElement.closest('.hl-comment, .hl-suggest, .hl-replacement')) continue;
       if (n.parentElement.classList.contains('para-num')) continue;
-      textNodes.push(n);
+      nodes.push(n);
     }
-    for (const node of textNodes) {
-      const idx = node.nodeValue.indexOf(target);
-      if (idx !== -1) {
-        const before = node.nodeValue.slice(0, idx);
-        const matched = node.nodeValue.slice(idx, idx + target.length);
-        const after = node.nodeValue.slice(idx + target.length);
-        const span = document.createElement('span');
-        span.className = ann.kind === 'suggestion' ? 'hl-suggest' : 'hl-comment';
-        span.dataset.id = ann.id;
-        span.textContent = matched;
-        const numBadge = document.createElement('span');
-        numBadge.className = 'hl-num';
-        numBadge.textContent = ann.id;
-        span.appendChild(numBadge);
-        const parent = node.parentNode;
-        parent.insertBefore(document.createTextNode(before), node);
-        parent.insertBefore(span, node);
-        if (ann.kind === 'suggestion' && ann.replacement) {
-          const rep = document.createElement('span');
-          rep.className = 'hl-replacement';
-          rep.dataset.id = ann.id;
-          rep.textContent = '→ ' + ann.replacement;
-          parent.insertBefore(rep, node);
-        }
-        parent.insertBefore(document.createTextNode(after), node);
-        parent.removeChild(node);
-        attachHighlightClick(span, ann.id);
-        return true;
+    const joined = nodes.map((x) => x.nodeValue).join('');
+    const idx = joined.indexOf(target);
+    if (idx === -1) return false;
+    const locate = (pos) => {
+      let total = 0;
+      for (const node of nodes) {
+        const len = node.nodeValue.length;
+        if (pos <= total + len) return { node, offset: pos - total };
+        total += len;
       }
+      return null;
+    };
+    const s = locate(idx);
+    const e = locate(idx + target.length);
+    if (!s || !e) return false;
+    const range = document.createRange();
+    try { range.setStart(s.node, s.offset); range.setEnd(e.node, e.offset); }
+    catch (err) { return false; }
+    const wraps = wrapRangeByTextNodes(range, () => {
+      const span = document.createElement('span');
+      span.className = ann.kind === 'suggestion' ? 'hl-suggest' : 'hl-comment';
+      span.dataset.id = ann.id;
+      return span;
+    });
+    if (!wraps.length) return false;
+    const last = wraps[wraps.length - 1];
+    const numBadge = document.createElement('span');
+    numBadge.className = 'hl-num';
+    numBadge.textContent = ann.id;
+    last.appendChild(numBadge);
+    if (ann.kind === 'suggestion' && ann.replacement) {
+      const rep = document.createElement('span');
+      rep.className = 'hl-replacement';
+      rep.dataset.id = ann.id;
+      rep.textContent = '→ ' + ann.replacement;
+      last.after(rep);
     }
-    return false;
+    wraps.forEach((w) => attachHighlightClick(w, ann.id));
+    return true;
   }
 
   function loadAnnotationsData(data) {
@@ -917,21 +930,57 @@
     });
   }
 
+  // Wrap every Text-node slice intersecting `range` in its own span (built by
+  // makeWrap). A range crossing inline elements (e.g. a **bold** run) paints
+  // continuously — one span per text node — instead of being mangled by
+  // range.extractContents()+single-span (which wraps mixed content in one node
+  // and silently fails to paint across element boundaries). Returns the wraps.
+  function wrapRangeByTextNodes(range, makeWrap) {
+    const { startContainer, endContainer, startOffset, endOffset } = range;
+    const root = range.commonAncestorContainer;
+    const scope = root.nodeType === Node.TEXT_NODE ? root.parentNode : root;
+    const textNodes = [];
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (node.parentElement && node.parentElement.classList.contains('hl-num')) return NodeFilter.FILTER_REJECT;
+        return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
+    let n; while ((n = walker.nextNode())) textNodes.push(n);
+    const wraps = [];
+    textNodes.forEach((node) => {
+      let start = 0, end = node.nodeValue.length;
+      if (node === startContainer) start = startOffset;
+      if (node === endContainer) end = endOffset;
+      if (start >= end) return;
+      if (!node.nodeValue.slice(start, end).trim()) return; // whitespace-only — nothing to paint
+      if (end < node.nodeValue.length) node.splitText(end);
+      let slice = node;
+      if (start > 0) slice = node.splitText(start);
+      const wrap = makeWrap();
+      slice.parentNode.insertBefore(wrap, slice);
+      wrap.appendChild(slice);
+      wraps.push(wrap);
+    });
+    return wraps;
+  }
+
   function wrapRange(range, id, kind) {
     try {
-      const span = document.createElement('span');
-      span.className = kind === 'suggestion' ? 'hl-suggest' : 'hl-comment';
-      span.dataset.id = id;
-      const contents = range.extractContents();
-      span.appendChild(contents);
-      const num = document.createElement('span');
+      const wraps = wrapRangeByTextNodes(range, () => {
+        const span = document.createElement('span');
+        span.className = kind === 'suggestion' ? 'hl-suggest' : 'hl-comment';
+        span.dataset.id = id;
+        return span;
+      });
+      if (!wraps.length) return false;
+      const num = document.createElement('span');     // exactly one number badge, at the end of the run
       num.className = 'hl-num';
       num.textContent = id;
-      span.appendChild(num);
-      range.insertNode(span);
-      attachHighlightClick(span, id);
+      wraps[wraps.length - 1].appendChild(num);
+      wraps.forEach((w) => attachHighlightClick(w, id));
       return true;
-    } catch (e) { return false; }
+    } catch (e) { console.warn('[markdown-annotator] wrap failed for', id, e); return false; }
   }
 
   document.addEventListener('selectionchange', () => {
