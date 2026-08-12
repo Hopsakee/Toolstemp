@@ -142,10 +142,53 @@
   }
 
   .layout {
-    max-width: 1400px; margin: 0 auto;
+    max-width: 1560px; margin: 0 auto;
     padding: 40px 48px;
-    display: grid; grid-template-columns: 1fr 380px;
-    gap: 56px; align-items: start;
+    display: grid; grid-template-columns: 220px minmax(0, 1fr) 380px;
+    gap: 40px 44px; align-items: start;
+  }
+  .layout.nav-hidden { grid-template-columns: minmax(0, 1fr) 380px; max-width: 1400px; gap: 56px; }
+  .layout.nav-hidden .navpane { display: none; }
+
+  .navpane {
+    position: sticky; top: 120px; max-height: calc(100vh - 140px);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .navpane-header {
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
+    padding-bottom: 12px; border-bottom: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  .nav-list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 6px; }
+  .nav-list::-webkit-scrollbar { width: 3px; }
+  .nav-list::-webkit-scrollbar-track { background: transparent; }
+  .nav-list::-webkit-scrollbar-thumb { background: var(--rule); }
+  .nav-item {
+    display: block; width: 100%; text-align: left; cursor: pointer;
+    background: transparent; border: none; border-left: 2px solid transparent;
+    font-family: var(--sans); font-size: 12px; line-height: 1.4;
+    color: var(--ink-soft); padding: 5px 8px; transition: color 0.15s, border-color 0.15s;
+    white-space: normal; overflow-wrap: anywhere;
+  }
+  .nav-item:hover { color: var(--ink); border-left-color: var(--rule); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+  .nav-item.lvl-1 {
+    font-family: var(--serif); font-size: 14px; font-weight: 500;
+    color: var(--ink); margin-top: 10px;
+  }
+  .nav-item.lvl-1:first-child { margin-top: 0; }
+  .nav-item.lvl-2 { padding-left: 8px; font-weight: 500; }
+  .nav-item.lvl-3 { padding-left: 20px; }
+  .nav-item.lvl-4 { padding-left: 32px; font-size: 11px; }
+  .nav-item.lvl-5, .nav-item.lvl-6 { padding-left: 44px; font-size: 11px; }
+  .nav-item .nav-marks {
+    font-family: var(--mono); font-size: 9px; color: var(--accent);
+    margin-left: 5px; vertical-align: 1px;
+  }
+  .nav-empty {
+    font-family: var(--sans); font-size: 11px; font-style: italic;
+    color: var(--ink-soft); opacity: 0.7; padding: 4px 8px;
   }
   .doc { max-width: 720px; font-size: 17px; line-height: 1.7; }
   .doc h1 {
@@ -441,8 +484,15 @@
   }
   .legend-item { display: flex; align-items: center; gap: 4px; }
   .legend-swatch { width: 14px; height: 8px; display: inline-block; }
+  @media (max-width: 1300px) {
+    .layout, .layout.nav-hidden {
+      grid-template-columns: minmax(0, 1fr) 380px; max-width: 1400px; gap: 56px;
+    }
+    .layout .navpane { display: none; }
+    #toggleNavBtn { display: none; }
+  }
   @media (max-width: 980px) {
-    .layout { grid-template-columns: 1fr; padding: 24px; gap: 24px; }
+    .layout, .layout.nav-hidden { grid-template-columns: 1fr; padding: 24px; gap: 24px; }
     .sidebar { position: static; max-height: none; }
     .masthead { padding: 16px 20px; }
     .doc h1 { font-size: 32px; }
@@ -485,6 +535,7 @@
     </div>
   </div>
   <div class="masthead-right">
+    <button class="btn ghost" id="toggleNavBtn" title="Inhoudsopgave tonen of verbergen">☰ Inhoud</button>
     <button class="btn ghost" id="changeMdBtn" title="Ander markdown-bestand laden (annotaties gaan verloren)">↺ Ander document</button>
     <button class="btn ghost" id="loadJsonBtn">↑ Annotaties (.json)</button>
     <button class="btn" id="saveJsonBtn">↓ Annotaties (.json)</button>
@@ -497,6 +548,13 @@
 <input type="file" id="mdFileChange" accept=".md,.markdown,.txt" style="display:none">
 
 <div class="layout" id="layout" style="display:none;">
+  <nav class="navpane" id="navpane">
+    <div class="navpane-header">
+      <span>Inhoud</span>
+    </div>
+    <div class="nav-list" id="navList"></div>
+  </nav>
+
   <main class="doc" id="doc">
     <div class="help-banner">
       <strong>Twee soorten annotaties:</strong> selecteer tekst en kies <kbd>Opmerking</kbd> voor vragen of feedback, of <kbd>Vervangen</kbd> voor tekstwijzigingen.
@@ -570,6 +628,11 @@
   const generalNotes = document.getElementById('generalNotes');
   const toast = document.getElementById('toast');
   const reviewerInput = document.getElementById('reviewer');
+  const navListEl = document.getElementById('navList');
+  const toggleNavBtn = document.getElementById('toggleNavBtn');
+
+  // Headings of the current document, each with the set of paragraph ids it covers.
+  let navEntries = [];
 
   reviewerInput.value = localStorage.getItem('annoteer_reviewer') || '';
   reviewerInput.addEventListener('input', () => {
@@ -777,7 +840,105 @@
       el.appendChild(num);
       el.dataset.paraN = n;
     });
+    renderNav();
   }
+
+  // A heading owns every block from itself up to the next heading of equal or
+  // higher rank, so annotation counts roll up into parent sections.
+  function buildNavEntries() {
+    const heads = [];
+    currentBlocks.forEach((b, i) => {
+      if (b.level) heads.push({ pid: b.id, level: b.level, text: b.headingText, idx: i });
+    });
+    heads.forEach((h, k) => {
+      let end = currentBlocks.length;
+      for (let j = k + 1; j < heads.length; j++) {
+        if (heads[j].level <= h.level) { end = heads[j].idx; break; }
+      }
+      h.pids = new Set(currentBlocks.slice(h.idx, end).map(b => b.id).filter(Boolean));
+    });
+    return heads;
+  }
+
+  function renderNav() {
+    navEntries = buildNavEntries();
+    navListEl.innerHTML = '';
+    if (navEntries.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'nav-empty';
+      empty.textContent = 'Dit document heeft geen koppen.';
+      navListEl.appendChild(empty);
+      return;
+    }
+    navEntries.forEach(h => {
+      const btn = document.createElement('button');
+      btn.className = `nav-item lvl-${h.level}`;
+      btn.dataset.pid = h.pid;
+      btn.title = h.text;
+      const label = document.createElement('span');
+      label.textContent = h.text;
+      const marks = document.createElement('span');
+      marks.className = 'nav-marks';
+      btn.append(label, marks);
+      btn.addEventListener('click', () => scrollToParagraph(h.pid));
+      navListEl.appendChild(btn);
+    });
+    updateNavCounts();
+    updateNavActive();
+  }
+
+  function updateNavCounts() {
+    navEntries.forEach(h => {
+      const btn = navListEl.querySelector(`.nav-item[data-pid="${h.pid}"]`);
+      if (!btn) return;
+      const n = annotations.filter(a => h.pids.has(a.paragraph_id)).length;
+      btn.querySelector('.nav-marks').textContent = n > 0 ? `· ${n}` : '';
+    });
+  }
+
+  // Highlight the deepest heading whose paragraph has scrolled past the masthead.
+  function updateNavActive() {
+    if (navEntries.length === 0) return;
+    let activePid = navEntries[0].pid;
+    for (const h of navEntries) {
+      const el = docContent.querySelector(`[data-pid="${h.pid}"]`);
+      if (!el) continue;
+      if (el.getBoundingClientRect().top <= 140) activePid = h.pid; else break;
+    }
+    navListEl.querySelectorAll('.nav-item').forEach(btn => {
+      const isActive = btn.dataset.pid === activePid;
+      if (isActive && !btn.classList.contains('active')) keepNavItemVisible(btn);
+      btn.classList.toggle('active', isActive);
+    });
+  }
+
+  // Nudge the nav's own scroll only — scrollIntoView() would move the page too.
+  function keepNavItemVisible(btn) {
+    const above = btn.offsetTop - navListEl.scrollTop;
+    const below = above + btn.offsetHeight - navListEl.clientHeight;
+    if (above < 0) navListEl.scrollTop += above;
+    else if (below > 0) navListEl.scrollTop += below;
+  }
+
+  function scrollToParagraph(pid) {
+    const el = docContent.querySelector(`[data-pid="${pid}"]`);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 130;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
+  let navSpyQueued = false;
+  window.addEventListener('scroll', () => {
+    if (navSpyQueued) return;
+    navSpyQueued = true;
+    requestAnimationFrame(() => { navSpyQueued = false; updateNavActive(); });
+  }, { passive: true });
+
+  toggleNavBtn.addEventListener('click', () => {
+    const hidden = layoutEl.classList.toggle('nav-hidden');
+    localStorage.setItem('annoteer_nav_hidden', hidden ? '1' : '0');
+  });
+  if (localStorage.getItem('annoteer_nav_hidden') === '1') layoutEl.classList.add('nav-hidden');
 
   function showEditor() {
     welcomeEl.style.display = 'none';
@@ -865,6 +1026,7 @@
   function updateCount() {
     countEl.textContent = annotations.length;
     emptyState.style.display = annotations.length === 0 ? 'block' : 'none';
+    updateNavCounts();
   }
 
   // Grow a textarea to fit its content. A hidden textarea reports scrollHeight 0,
