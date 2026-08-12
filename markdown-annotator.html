@@ -197,6 +197,22 @@
   }
   .doc pre code { background: transparent; padding: 0; font-size: inherit; }
   .doc hr { border: none; height: 1px; background: var(--rule); margin: 40px 0; }
+  .doc .table-wrap { margin: 24px 0; overflow-x: auto; }
+  .doc table {
+    border-collapse: collapse; width: 100%;
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
+    background: #ffffff; border: 1px solid var(--rule);
+  }
+  .doc th, .doc td {
+    border: 1px solid var(--rule); padding: 8px 12px;
+    text-align: left; vertical-align: top;
+  }
+  .doc th {
+    background: var(--ink-faint); font-weight: 600;
+    font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .doc tbody tr:nth-child(even) { background: #00000006; }
   .doc a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
   .annotatable { position: relative; }
   .para-num {
@@ -550,6 +566,47 @@
     return s;
   }
 
+  // --- GFM tables -----------------------------------------------------------
+  // A table is a row containing a pipe, immediately followed by a delimiter row
+  // (|---|:--:|). Both the renderer and the revised-markdown exporter walk the
+  // source with the same rules, so paragraph ids stay in sync between them.
+  const TABLE_DELIM_RE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+  function isTableStart(lines, i) {
+    const head = lines[i], delim = lines[i + 1];
+    if (delim === undefined) return false;
+    if (!head.includes('|') || head.trim() === '') return false;
+    return delim.includes('|') && delim.includes('-') && TABLE_DELIM_RE.test(delim);
+  }
+
+  function isTableRow(line) {
+    return line !== undefined && line.trim() !== '' && line.includes('|');
+  }
+
+  function splitTableRow(line) {
+    let s = line.trim();
+    if (s.startsWith('|')) s = s.slice(1);
+    if (s.endsWith('|') && !s.endsWith('\\|')) s = s.slice(0, -1);
+    const cells = [];
+    let cur = '';
+    for (let k = 0; k < s.length; k++) {
+      if (s[k] === '\\' && s[k + 1] === '|') { cur += '|'; k++; continue; }
+      if (s[k] === '|') { cells.push(cur); cur = ''; continue; }
+      cur += s[k];
+    }
+    cells.push(cur);
+    return cells.map(c => c.trim());
+  }
+
+  function tableAlignments(delimLine) {
+    return splitTableRow(delimLine).map(c => {
+      const left = c.startsWith(':'), right = c.endsWith(':');
+      if (left && right) return 'center';
+      if (right) return 'right';
+      return '';
+    });
+  }
+
   function parseMarkdown(md) {
     md = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = md.split('\n');
@@ -576,6 +633,28 @@
         blocks.push({ type: `h${level}`, id: `p-${paraCounter}`, level: level, headingText: text,
           html: `<h${level} data-pid="p-${paraCounter}" class="annotatable">${renderInline(text)}</h${level}>` });
         i++; continue;
+      }
+      if (isTableStart(lines, i)) {
+        const headCells = splitTableRow(lines[i]);
+        const aligns = tableAlignments(lines[i + 1]);
+        i += 2;
+        const bodyRows = [];
+        while (isTableRow(lines[i])) { bodyRows.push(splitTableRow(lines[i])); i++; }
+        paraCounter++;
+        const alignAttr = (k) => aligns[k] ? ` style="text-align:${aligns[k]}"` : '';
+        const thead = `<thead><tr>${headCells.map((c, k) =>
+          `<th${alignAttr(k)}>${renderInline(c)}</th>`).join('')}</tr></thead>`;
+        const tbody = bodyRows.length
+          ? `<tbody>${bodyRows.map(r => {
+              const cells = r.slice();
+              while (cells.length < headCells.length) cells.push('');
+              return `<tr>${cells.map((c, k) =>
+                `<td${alignAttr(k)}>${renderInline(c)}</td>`).join('')}</tr>`;
+            }).join('')}</tbody>`
+          : '';
+        blocks.push({ type: 'table', id: `p-${paraCounter}`,
+          html: `<div data-pid="p-${paraCounter}" class="table-wrap annotatable"><table>${thead}${tbody}</table></div>` });
+        continue;
       }
       if (/^(\s*[-*_]){3,}\s*$/.test(line) && line.trim().length >= 3) {
         blocks.push({ type: 'hr', id: null, html: '<hr>' }); i++; continue;
@@ -619,7 +698,8 @@
       const paraLines = [];
       while (i < lines.length && lines[i].trim() !== '' &&
              !/^(#{1,6}\s|>|```|[-*+]\s|\d+\.\s)/.test(lines[i]) &&
-             !/^(\s*[-*_]){3,}\s*$/.test(lines[i])) {
+             !/^(\s*[-*_]){3,}\s*$/.test(lines[i]) &&
+             !isTableStart(lines, i)) {
         paraLines.push(lines[i]); i++;
       }
       if (paraLines.length > 0) {
@@ -1251,6 +1331,14 @@
       }
       const h = line.match(/^(#{1,6})\s+(.+)$/);
       if (h) { paraCounter++; outLines.push(applyAnnotationsToBlock(line, `p-${paraCounter}`, byPid)); i++; continue; }
+      if (isTableStart(srcLines, i)) {
+        const buf = [srcLines[i], srcLines[i + 1]];
+        i += 2;
+        while (isTableRow(srcLines[i])) { buf.push(srcLines[i]); i++; }
+        paraCounter++;
+        outLines.push(applyAnnotationsToBlock(buf.join('\n'), `p-${paraCounter}`, byPid));
+        continue;
+      }
       if (/^(\s*[-*_]){3,}\s*$/.test(line) && line.trim().length >= 3) { outLines.push(line); i++; continue; }
       if (/^>\s?/.test(line)) {
         const buf = [];
@@ -1277,7 +1365,8 @@
       const paraBuf = [];
       while (i < srcLines.length && srcLines[i].trim() !== '' &&
              !/^(#{1,6}\s|>|```|[-*+]\s|\d+\.\s)/.test(srcLines[i]) &&
-             !/^(\s*[-*_]){3,}\s*$/.test(srcLines[i])) {
+             !/^(\s*[-*_]){3,}\s*$/.test(srcLines[i]) &&
+             !isTableStart(srcLines, i)) {
         paraBuf.push(srcLines[i]); i++;
       }
       if (paraBuf.length > 0) {
