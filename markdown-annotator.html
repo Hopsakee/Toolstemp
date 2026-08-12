@@ -255,8 +255,17 @@
     text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
     padding-bottom: 12px; border-bottom: 1px solid var(--rule);
     display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 8px;
   }
   .count { font-family: var(--mono); color: var(--accent); font-size: 13px; }
+  .header-tools { display: flex; align-items: center; gap: 6px; }
+  .mini-btn {
+    font-family: var(--sans); font-size: 9px; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 2px 6px; font-weight: 600;
+    border: 1px solid var(--rule); background: transparent;
+    color: var(--ink-soft); cursor: pointer; border-radius: 2px;
+  }
+  .mini-btn:hover { border-color: var(--ink); color: var(--ink); }
   .annotations {
     flex: 1; overflow-y: auto; display: flex; flex-direction: column;
     gap: 10px; padding-right: 4px; padding-bottom: 8px;
@@ -309,7 +318,7 @@
   .annotation-card textarea {
     width: 100%; border: 1px solid var(--rule); background: #fafafa;
     font-family: var(--sans); font-size: 13px; line-height: 1.5;
-    color: var(--ink); resize: vertical; min-height: 38px;
+    color: var(--ink); resize: none; min-height: 38px; overflow-y: hidden;
     padding: 6px 8px; outline: none; margin-top: 6px;
     border-radius: 2px;
   }
@@ -339,6 +348,24 @@
   }
   .annotation-card .actions button:hover { border-color: var(--ink); color: var(--ink); }
   .annotation-card .actions button.delete:hover { border-color: var(--danger); color: var(--danger); }
+  /* Collapsed state: only header + one-line quote + one-line preview stay visible. */
+  .annotation-card.collapsed { cursor: pointer; }
+  .annotation-card.collapsed .card-body { display: none; }
+  .annotation-card.collapsed .quote { -webkit-line-clamp: 1; margin: 4px 0 0; }
+  .annotation-card .caret {
+    font-family: var(--sans); font-size: 9px; color: var(--ink-soft);
+    cursor: pointer; user-select: none; width: 10px; display: inline-block;
+  }
+  .annotation-card .caret::before { content: '▾'; }
+  .annotation-card.collapsed .caret::before { content: '▸'; }
+  .annotation-card .caret:hover { color: var(--accent); }
+  .annotation-card .preview { display: none; }
+  .annotation-card.collapsed .preview {
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+    overflow: hidden; font-family: var(--sans); font-size: 11px;
+    color: var(--ink-soft); margin-top: 4px; line-height: 1.5;
+  }
+  .annotation-card.collapsed .preview.empty { font-style: italic; opacity: 0.6; }
   .empty-state {
     text-align: center; padding: 36px 16px;
     color: var(--ink-soft); font-style: italic; font-size: 13px; line-height: 1.6;
@@ -484,7 +511,11 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <span>Annotaties</span>
-      <span class="count" id="count">0</span>
+      <div class="header-tools">
+        <button class="mini-btn" id="expandAllBtn" title="Alle annotaties uitklappen">Uitklappen</button>
+        <button class="mini-btn" id="collapseAllBtn" title="Alle annotaties inklappen">Inklappen</button>
+        <span class="count" id="count">0</span>
+      </div>
     </div>
     <div class="annotations" id="annotations">
       <div class="empty-state" id="emptyState">
@@ -516,6 +547,8 @@
   let currentBlocks = [];
   let pendingJsonData = null;
   let currentRange = null;
+  // Annotation cards render collapsed unless their id is in here; survives re-renders.
+  let expandedIds = new Set();
 
   const welcomeEl = document.getElementById('welcome');
   const mastheadEl = document.getElementById('masthead');
@@ -834,6 +867,44 @@
     emptyState.style.display = annotations.length === 0 ? 'block' : 'none';
   }
 
+  // Grow a textarea to fit its content. A hidden textarea reports scrollHeight 0,
+  // so this must run again once its card is expanded.
+  function autoGrow(ta) {
+    ta.style.height = 'auto';
+    const h = ta.scrollHeight;           // 0 while the card is collapsed
+    if (h) ta.style.height = Math.max(h + 2, 38) + 'px';
+    else ta.style.height = '';
+  }
+
+  function setCardExpanded(id, expanded) {
+    if (expanded) expandedIds.add(id); else expandedIds.delete(id);
+    const card = annotationsEl.querySelector(`.annotation-card[data-id="${id}"]`);
+    if (!card) return;
+    card.classList.toggle('collapsed', !expanded);
+    if (expanded) card.querySelectorAll('textarea').forEach(autoGrow);
+  }
+
+  function expandCard(id, focus) {
+    setCardExpanded(id, true);
+    if (!focus) return;
+    const card = annotationsEl.querySelector(`.annotation-card[data-id="${id}"]`);
+    const ta = card && card.querySelector('textarea:not(:disabled)');
+    if (ta) ta.focus();
+  }
+
+  function setAllExpanded(expanded) {
+    expandedIds = expanded ? new Set(annotations.map(a => a.id)) : new Set();
+    annotationsEl.querySelectorAll('.annotation-card').forEach(card => {
+      card.classList.toggle('collapsed', !expanded);
+      if (expanded) card.querySelectorAll('textarea').forEach(autoGrow);
+    });
+  }
+
+  function previewText(ann) {
+    if (ann.kind === 'suggestion') return (ann.replacement || '').trim() || (ann.comment || '').trim();
+    return (ann.comment || '').trim();
+  }
+
   function renderAnnotations() {
     [...annotationsEl.children].forEach(c => { if (c.id !== 'emptyState') c.remove(); });
     const me = reviewerInput.value.trim() || 'onbekend';
@@ -848,7 +919,7 @@
 
     ordered.forEach(ann => {
       const card = document.createElement('div');
-      card.className = 'annotation-card';
+      card.className = 'annotation-card' + (expandedIds.has(ann.id) ? '' : ' collapsed');
       card.dataset.id = ann.id;
       const ownedByMe = !ann.author || ann.author === me;
       const sectionPath = getSectionPath(currentBlocks, ann.paragraph_id);
@@ -863,6 +934,7 @@
       header.className = 'header';
       header.innerHTML = `
         <div class="num-kind">
+          <span class="caret" title="Uit-/inklappen"></span>
           <span class="num">№ ${String(ann.id).padStart(2, '0')} · ${paraN}</span>
           <span class="kind-pill ${kindCls}">${kindLabel}</span>
         </div>
@@ -870,23 +942,37 @@
       `;
       card.appendChild(header);
 
-      const loc = document.createElement('div');
-      loc.className = 'location';
-      loc.title = sectionText;
-      loc.textContent = sectionText || '—';
-      card.appendChild(loc);
-
       const quote = document.createElement('div');
       quote.className = 'quote' + (isSuggestion ? ' struck' : '');
       quote.textContent = '"' + ann.text + '"';
       quote.addEventListener('click', () => scrollToHighlight(ann.id));
       card.appendChild(quote);
 
+      const preview = document.createElement('div');
+      preview.className = 'preview';
+      const setPreview = () => {
+        const t = previewText(ann);
+        preview.textContent = t || (isSuggestion ? 'Nog geen vervangende tekst…' : 'Nog geen opmerking…');
+        preview.classList.toggle('empty', !t);
+      };
+      setPreview();
+      card.appendChild(preview);
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+      card.appendChild(body);
+
+      const loc = document.createElement('div');
+      loc.className = 'location';
+      loc.title = sectionText;
+      loc.textContent = sectionText || '—';
+      body.appendChild(loc);
+
       if (isSuggestion) {
         const repLabel = document.createElement('div');
         repLabel.className = 'field-label';
         repLabel.textContent = 'Vervang door';
-        card.appendChild(repLabel);
+        body.appendChild(repLabel);
 
         const repInput = document.createElement('textarea');
         repInput.className = 'replacement-input';
@@ -913,14 +999,16 @@
             } else if (repEl) {
               repEl.remove();
             }
+            autoGrow(repInput);
+            setPreview();
           });
         }
-        card.appendChild(repInput);
+        body.appendChild(repInput);
 
         const reasonLabel = document.createElement('div');
         reasonLabel.className = 'field-label';
         reasonLabel.textContent = 'Toelichting (optioneel)';
-        card.appendChild(reasonLabel);
+        body.appendChild(reasonLabel);
 
         const noteInput = document.createElement('textarea');
         noteInput.placeholder = 'Waarom deze wijziging…';
@@ -930,9 +1018,11 @@
           noteInput.addEventListener('input', (e) => {
             ann.comment = e.target.value;
             if (!ann.author) ann.author = me;
+            autoGrow(noteInput);
+            setPreview();
           });
         }
-        card.appendChild(noteInput);
+        body.appendChild(noteInput);
       } else {
         const commentInput = document.createElement('textarea');
         commentInput.placeholder = 'Jouw opmerking…';
@@ -942,9 +1032,11 @@
           commentInput.addEventListener('input', (e) => {
             ann.comment = e.target.value;
             if (!ann.author) ann.author = me;
+            autoGrow(commentInput);
+            setPreview();
           });
         }
-        card.appendChild(commentInput);
+        body.appendChild(commentInput);
       }
 
       const actions = document.createElement('div');
@@ -963,8 +1055,21 @@
         });
         actions.appendChild(delBtn);
       }
-      card.appendChild(actions);
+      body.appendChild(actions);
+
+      // Caret toggles both ways; clicking a collapsed card (or its header while
+      // expanded) flips it too, so the whole card acts as one control.
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('textarea, button')) return;
+        const collapsed = card.classList.contains('collapsed');
+        if (collapsed) expandCard(ann.id, !e.target.closest('.quote'));
+        else if (e.target.closest('.caret') || e.target.closest('.header')) setCardExpanded(ann.id, false);
+      });
+
       annotationsEl.appendChild(card);
+      if (!card.classList.contains('collapsed')) {
+        card.querySelectorAll('textarea').forEach(autoGrow);
+      }
     });
     updateCount();
   }
@@ -981,6 +1086,7 @@
 
   function removeAnnotation(id) {
     annotations = annotations.filter(a => a.id !== id);
+    expandedIds.delete(id);
     const els = docContent.querySelectorAll(`.hl-comment[data-id="${id}"], .hl-suggest[data-id="${id}"], .hl-replacement[data-id="${id}"]`);
     els.forEach(el => {
       const parent = el.parentNode;
@@ -1000,11 +1106,12 @@
       e.stopPropagation();
       const card = annotationsEl.querySelector(`[data-id="${id}"]`);
       if (card) {
+        expandCard(id, false);
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         annotationsEl.querySelectorAll('.annotation-card.active').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
-        const ta = card.querySelector('textarea');
-        if (ta && !ta.disabled) ta.focus();
+        const ta = card.querySelector('textarea:not(:disabled)');
+        if (ta) ta.focus();
         setTimeout(() => card.classList.remove('active'), 2000);
       }
     });
@@ -1112,6 +1219,7 @@
         comment: '', author: me, created_at: new Date().toISOString() };
       if (kind === 'suggestion') ann.replacement = '';
       annotations.push(ann);
+      expandedIds.add(id);
       renderAnnotations();
       setTimeout(() => {
         const card = annotationsEl.querySelector(`[data-id="${id}"]`);
@@ -1125,6 +1233,13 @@
     popup.style.display = 'none';
     currentRange = null;
   }
+
+  document.getElementById('expandAllBtn').addEventListener('click', () => setAllExpanded(true));
+  document.getElementById('collapseAllBtn').addEventListener('click', () => setAllExpanded(false));
+
+  window.addEventListener('resize', () => {
+    annotationsEl.querySelectorAll('.annotation-card:not(.collapsed) textarea').forEach(autoGrow);
+  });
 
   document.getElementById('popupComment').addEventListener('click', () => createAnnotation('comment'));
   document.getElementById('popupSuggest').addEventListener('click', () => createAnnotation('suggestion'));
