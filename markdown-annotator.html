@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
   :root {
     --paper: #f4f1ea;
@@ -239,6 +241,7 @@
     color: var(--ink); border-radius: 2px;
   }
   .doc pre code { background: transparent; padding: 0; font-size: inherit; }
+  .doc pre code.hljs { background: transparent; padding: 0; }
   .doc hr { border: none; height: 1px; background: var(--rule); margin: 40px 0; }
   .doc .table-wrap { margin: 24px 0; overflow-x: auto; }
   .doc table {
@@ -656,14 +659,14 @@
     const codeSpans = [];
     s = s.replace(/`([^`]+)`/g, (m, c) => {
       codeSpans.push(c);
-      return ` CODE${codeSpans.length - 1} `;
+      return `\u0000CODE${codeSpans.length - 1}\u0000`;
     });
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
     s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
       (m, txt, url) => `<a href="${url}" target="_blank" rel="noopener">${txt}</a>`);
-    s = s.replace(/ CODE(\d+) /g, (m, idx) => `<code>${codeSpans[Number(idx)]}</code>`);
+    s = s.replace(/\u0000CODE(\d+)\u0000/g, (m, idx) => `<code>${codeSpans[Number(idx)]}</code>`);
     return s;
   }
 
@@ -716,14 +719,17 @@
     let paraCounter = 0;
     while (i < lines.length) {
       const line = lines[i];
-      if (/^```/.test(line)) {
+      const fence = line.match(/^```(\S*)/);
+      if (fence) {
+        const lang = /^[a-zA-Z0-9_+-]*$/.test(fence[1]) ? fence[1] : '';
         i++;
         const codeLines = [];
         while (i < lines.length && !/^```/.test(lines[i])) { codeLines.push(lines[i]); i++; }
         if (i < lines.length) i++;
         paraCounter++;
+        const langClass = lang ? ` language-${lang}` : '';
         blocks.push({ type: 'pre', id: `p-${paraCounter}`,
-          html: `<pre data-pid="p-${paraCounter}" class="annotatable"><code>${escapeHtml(codeLines.join('\n'))}</code></pre>` });
+          html: `<pre data-pid="p-${paraCounter}" class="annotatable"><code class="hljs${langClass}">${escapeHtml(codeLines.join('\n'))}</code></pre>` });
         continue;
       }
       const h = line.match(/^(#{1,6})\s+(.+)$/);
@@ -836,6 +842,9 @@
     docTitleEl.textContent = documentTitle;
     document.title = documentTitle + ' — Annoteer';
     docContent.innerHTML = currentBlocks.map(b => b.html).join('\n');
+    if (window.hljs) {
+      docContent.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+    }
     let n = 0;
     docContent.querySelectorAll('[data-pid]').forEach(el => {
       n++;
