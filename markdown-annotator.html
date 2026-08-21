@@ -541,12 +541,17 @@
 
   function renderInline(text) {
     let s = escapeHtml(text);
-    s = s.replace(/`([^`]+)`/g, (m, c) => `<code>${c}</code>`);
+    const codeSpans = [];
+    s = s.replace(/`([^`]+)`/g, (m, c) => {
+      codeSpans.push(c);
+      return ` CODE${codeSpans.length - 1} `;
+    });
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
     s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
       (m, txt, url) => `<a href="${url}" target="_blank" rel="noopener">${txt}</a>`);
+    s = s.replace(/ CODE(\d+) /g, (m, idx) => `<code>${codeSpans[Number(idx)]}</code>`);
     return s;
   }
 
