@@ -222,6 +222,11 @@
   .doc ul li { margin-bottom: 8px; list-style: none; position: relative; }
   .doc ul li::before { content: "—"; position: absolute; left: -24px; color: var(--accent); }
   .doc ol li { margin-bottom: 8px; }
+  .doc li.task-list-item { display: flex; align-items: flex-start; gap: 8px; }
+  .doc li.task-list-item::before { content: none; }
+  .doc .task-checkbox { margin-top: 5px; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .doc table input[type="checkbox"] { accent-color: var(--accent); vertical-align: middle; }
+  .doc table input[type="checkbox"]:disabled { opacity: 0.6; cursor: not-allowed; }
   .doc strong { font-weight: 600; }
   .doc em { font-style: italic; }
   .doc blockquote {
@@ -670,6 +675,24 @@
     return s;
   }
 
+  // GFM task-list marker: "[ ]" / "[x]" / "[X]" at the start of a list item
+  // or table-cell's text, optionally followed by the rest of the content.
+  const TASK_MARK_RE = /^\[([ xX])\]\s*([\s\S]*)$/;
+  function renderTaskAware(text, opts) {
+    const m = TASK_MARK_RE.exec(text);
+    if (!m) return null;
+    const checked = m[1] !== ' ';
+    const rest = renderInline(m[2]);
+    // No <label> wrapping the text: a label forwards a click on the text itself
+    // to the checkbox, so a stray click ending a text-selection drag (the
+    // annotation-creation gesture) could silently toggle it. The <input> is a
+    // separate sibling so only the box itself is a toggle target.
+    if (opts && opts.interactive) {
+      return `<input type="checkbox" class="task-checkbox"${checked ? ' checked' : ''} data-line="${opts.lineIndex}"> <span>${rest}</span>`;
+    }
+    return `<input type="checkbox" disabled${checked ? ' checked' : ''}> <span>${rest}</span>`;
+  }
+
   // --- GFM tables -----------------------------------------------------------
   // A table is a row containing a pipe, immediately followed by a delimiter row
   // (|---|:--:|). Both the renderer and the revised-markdown exporter walk the
@@ -755,8 +778,10 @@
           ? `<tbody>${bodyRows.map(r => {
               const cells = r.slice();
               while (cells.length < headCells.length) cells.push('');
-              return `<tr>${cells.map((c, k) =>
-                `<td${alignAttr(k)}>${renderInline(c)}</td>`).join('')}</tr>`;
+              return `<tr>${cells.map((c, k) => {
+                const task = renderTaskAware(c || '');
+                return `<td${alignAttr(k)}>${task !== null ? task : renderInline(c)}</td>`;
+              }).join('')}</tr>`;
             }).join('')}</tbody>`
           : '';
         blocks.push({ type: 'table', id: `p-${paraCounter}`,
@@ -778,12 +803,17 @@
       if (/^[-*+]\s+/.test(line)) {
         const items = [];
         while (i < lines.length && /^[-*+]\s+/.test(lines[i])) {
+          const itemLineIndex = i;
           const itemLines = [lines[i].replace(/^[-*+]\s+/, '')]; i++;
           while (i < lines.length && /^ {2,}\S/.test(lines[i])) { itemLines.push(lines[i].replace(/^ +/, '')); i++; }
-          items.push(itemLines.join(' '));
+          items.push({ text: itemLines.join(' '), lineIndex: itemLineIndex });
         }
         paraCounter++;
-        const lis = items.map(it => `<li>${renderInline(it)}</li>`).join('');
+        const lis = items.map(it => {
+          const task = renderTaskAware(it.text, { interactive: true, lineIndex: it.lineIndex });
+          if (task !== null) return `<li class="task-list-item">${task}</li>`;
+          return `<li>${renderInline(it.text)}</li>`;
+        }).join('');
         blocks.push({ type: 'ul', id: `p-${paraCounter}`,
           html: `<ul data-pid="p-${paraCounter}" class="annotatable">${lis}</ul>` });
         continue;
@@ -835,8 +865,8 @@
   }
 
   function renderDocument(md) {
-    documentMarkdown = md;
-    currentBlocks = parseMarkdown(md);
+    documentMarkdown = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    currentBlocks = parseMarkdown(documentMarkdown);
     const firstH1 = currentBlocks.find(b => b.type === 'h1');
     documentTitle = firstH1 ? firstH1.headingText : mdFilename.replace(/\.(md|markdown|txt)$/i, '');
     docTitleEl.textContent = documentTitle;
@@ -953,6 +983,22 @@
     localStorage.setItem('annoteer_nav_hidden', hidden ? '1' : '0');
   });
   if (localStorage.getItem('annoteer_nav_hidden') === '1') layoutEl.classList.add('nav-hidden');
+
+  function toggleTaskItem(lineIndex, checked) {
+    const lines = documentMarkdown.split('\n');
+    if (lineIndex < 0 || lineIndex >= lines.length) return;
+    const mark = checked ? 'x' : ' ';
+    lines[lineIndex] = lines[lineIndex].replace(/^(\s*[-*+]\s+\[)[ xX](\])/, `$1${mark}$2`);
+    documentMarkdown = lines.join('\n');
+  }
+
+  docContent.addEventListener('change', (e) => {
+    const cb = e.target.closest('input.task-checkbox');
+    if (!cb) return;
+    const lineIndex = Number(cb.dataset.line);
+    if (Number.isNaN(lineIndex)) return;
+    toggleTaskItem(lineIndex, cb.checked);
+  });
 
   function showEditor() {
     welcomeEl.style.display = 'none';
