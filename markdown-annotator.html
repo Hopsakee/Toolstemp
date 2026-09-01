@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://unpkg.com/panzoom@9.4.4/dist/panzoom.min.js"></script>
 <script type="module">
   // startOnLoad:false — this is an SPA that (re)builds docContent's innerHTML on
   // every file load, so diagrams are rendered on demand via mermaid.run(), never
@@ -265,8 +266,34 @@
   }
   .doc pre code { background: transparent; padding: 0; font-size: inherit; }
   .doc pre code.hljs { background: transparent; padding: 0; }
-  .doc pre.mermaid { text-align: center; }
+  .doc pre.mermaid { text-align: center; cursor: zoom-in; }
   .doc pre.mermaid svg { max-width: 100%; height: auto; }
+
+  .mermaid-lightbox {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    flex-direction: column; background: var(--paper);
+  }
+  .mermaid-lightbox.open { display: flex; }
+  .mermaid-lightbox-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px; padding: 14px 24px; border-bottom: 2px solid var(--ink);
+    flex-wrap: wrap;
+  }
+  .mermaid-lightbox-hint {
+    font-family: var(--sans); font-size: 12px; color: var(--ink-soft); font-style: italic;
+  }
+  .mermaid-lightbox-actions { display: flex; gap: 8px; align-items: center; }
+  .mermaid-lightbox-actions .btn { padding: 8px 12px; }
+  .mermaid-lightbox-viewport {
+    flex: 1; overflow: hidden; position: relative; cursor: grab;
+    background-image:
+      radial-gradient(circle at 25% 15%, #00000004 0%, transparent 50%),
+      radial-gradient(circle at 75% 85%, #00000005 0%, transparent 50%);
+  }
+  .mermaid-lightbox-viewport:active { cursor: grabbing; }
+  .mermaid-lightbox-viewport:focus { outline: none; }
+  .mermaid-lightbox-stage { display: inline-block; }
+  .mermaid-lightbox-stage svg { display: block; }
   .doc hr { border: none; height: 1px; background: var(--rule); margin: 40px 0; }
   .doc .table-wrap { margin: 24px 0; overflow-x: auto; }
   .doc table {
@@ -623,6 +650,21 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<div class="mermaid-lightbox" id="mermaidLightbox">
+  <div class="mermaid-lightbox-bar">
+    <span class="mermaid-lightbox-hint">Sleep om te verplaatsen · scroll om te zoomen</span>
+    <div class="mermaid-lightbox-actions">
+      <button class="btn ghost" id="mermaidZoomOutBtn" title="Uitzoomen">−</button>
+      <button class="btn ghost" id="mermaidZoomFitBtn" title="Passend maken">⤢ Passend</button>
+      <button class="btn ghost" id="mermaidZoomInBtn" title="Inzoomen">+</button>
+      <button class="btn" id="mermaidLightboxCloseBtn" title="Sluiten (Esc)">✕ Sluiten</button>
+    </div>
+  </div>
+  <div class="mermaid-lightbox-viewport" id="mermaidLightboxViewport">
+    <div class="mermaid-lightbox-stage" id="mermaidLightboxStage"></div>
+  </div>
+</div>
+
 <script>
 (function() {
   let annotations = [];
@@ -658,6 +700,11 @@
   const reviewerInput = document.getElementById('reviewer');
   const navListEl = document.getElementById('navList');
   const toggleNavBtn = document.getElementById('toggleNavBtn');
+  const mermaidLightbox = document.getElementById('mermaidLightbox');
+  const mermaidLightboxViewport = document.getElementById('mermaidLightboxViewport');
+  const mermaidLightboxStage = document.getElementById('mermaidLightboxStage');
+  let mermaidPanzoom = null;
+  let mermaidLightboxSize = null; // {w, h} of the diagram's own SVG user units
 
   // Headings of the current document, each with the set of paragraph ids it covers.
   let navEntries = [];
@@ -874,6 +921,64 @@
       }
     }
     return blocks;
+  }
+
+  // --- Mermaid diagram lightbox (click a rendered diagram to zoom/pan it) ---
+
+  function openMermaidLightbox(svgEl) {
+    const clone = svgEl.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.removeAttribute('style');
+    // The natural size comes from the viewBox (SVG user units), not the
+    // width/height attributes mermaid sets — those are often "100%" so the
+    // diagram shrinks to fit its inline column, which is exactly what we
+    // don't want here: the stage needs a fixed intrinsic box for panzoom's
+    // scale/translate math to have a stable baseline (scale 1 = natural size).
+    const vb = clone.viewBox && clone.viewBox.baseVal;
+    // getBBox() is only reliably present on SVGGraphicsElement, not the root
+    // <svg> itself in every browser — mermaid always emits a viewBox, so this
+    // fallback is a safety net, not the normal path.
+    const bbox = (!vb || !vb.width || !vb.height) && typeof svgEl.getBBox === 'function'
+      ? svgEl.getBBox() : null;
+    const w = (vb && vb.width) || (bbox && bbox.width) || 800;
+    const h = (vb && vb.height) || (bbox && bbox.height) || 600;
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    mermaidLightboxSize = { w, h };
+
+    mermaidLightboxStage.innerHTML = '';
+    mermaidLightboxStage.appendChild(clone);
+    mermaidLightbox.classList.add('open');
+
+    if (mermaidPanzoom) { mermaidPanzoom.dispose(); mermaidPanzoom = null; }
+    mermaidPanzoom = window.panzoom(mermaidLightboxStage, { maxZoom: 8, minZoom: 0.05 });
+    fitMermaidLightboxView();
+  }
+
+  // zoomAbs() takes an anchor point + target scale (it does not set x/y
+  // directly), so a plain moveTo() right after it is what actually lands the
+  // stage at the exact centered position — see PR discussion for the trace
+  // through panzoom's source that pinned this down.
+  function fitMermaidLightboxView() {
+    if (!mermaidPanzoom || !mermaidLightboxSize) return;
+    const vp = mermaidLightboxViewport.getBoundingClientRect();
+    const { w, h } = mermaidLightboxSize;
+    const scale = Math.min(vp.width / w, vp.height / h) * 0.96;
+    mermaidPanzoom.zoomAbs(0, 0, scale);
+    mermaidPanzoom.moveTo((vp.width - w * scale) / 2, (vp.height - h * scale) / 2);
+  }
+
+  function zoomMermaidLightbox(factor) {
+    if (!mermaidPanzoom) return;
+    const vp = mermaidLightboxViewport.getBoundingClientRect();
+    mermaidPanzoom.smoothZoom(vp.width / 2, vp.height / 2, factor);
+  }
+
+  function closeMermaidLightbox() {
+    if (mermaidPanzoom) { mermaidPanzoom.dispose(); mermaidPanzoom = null; }
+    mermaidLightbox.classList.remove('open');
+    mermaidLightboxStage.innerHTML = '';
+    mermaidLightboxSize = null;
   }
 
   function getSectionPath(blocks, pid) {
@@ -1520,6 +1625,25 @@
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) popup.style.display = 'none';
     }
+  });
+
+  docContent.addEventListener('click', (e) => {
+    const host = e.target.closest('pre.mermaid');
+    if (!host) return;
+    // A drag-select inside the diagram (to annotate a label) still fires a
+    // native click on mouseup — don't steal it from the selection-popup flow.
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim().length >= 2) return;
+    const svg = host.querySelector('svg');
+    if (svg) openMermaidLightbox(svg);
+  });
+
+  document.getElementById('mermaidZoomInBtn').addEventListener('click', () => zoomMermaidLightbox(1.5));
+  document.getElementById('mermaidZoomOutBtn').addEventListener('click', () => zoomMermaidLightbox(1 / 1.5));
+  document.getElementById('mermaidZoomFitBtn').addEventListener('click', () => fitMermaidLightboxView());
+  document.getElementById('mermaidLightboxCloseBtn').addEventListener('click', () => closeMermaidLightbox());
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mermaidLightbox.classList.contains('open')) closeMermaidLightbox();
   });
 
   function loadMarkdownFile(file) {
