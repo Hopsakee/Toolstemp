@@ -9,6 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script type="module">
+  // startOnLoad:false — this is an SPA that (re)builds docContent's innerHTML on
+  // every file load, so diagrams are rendered on demand via mermaid.run(), never
+  // on the page's own load event.
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    themeVariables: {
+      background: '#f4f1ea', primaryColor: '#b8472c14', primaryTextColor: '#1a1814',
+      primaryBorderColor: '#1a1814', lineColor: '#4a463e',
+      secondaryColor: '#f4f1ea', tertiaryColor: '#f4f1ea'
+    }
+  });
+  // The main app script below is a plain (non-module) IIFE, so it can't `import`
+  // mermaid itself — hand it off on window.
+  window.mermaid = mermaid;
+</script>
 <style>
   :root {
     --paper: #f4f1ea;
@@ -247,6 +265,8 @@
   }
   .doc pre code { background: transparent; padding: 0; font-size: inherit; }
   .doc pre code.hljs { background: transparent; padding: 0; }
+  .doc pre.mermaid { text-align: center; }
+  .doc pre.mermaid svg { max-width: 100%; height: auto; }
   .doc hr { border: none; height: 1px; background: var(--rule); margin: 40px 0; }
   .doc .table-wrap { margin: 24px 0; overflow-x: auto; }
   .doc table {
@@ -750,6 +770,14 @@
         while (i < lines.length && !/^```/.test(lines[i])) { codeLines.push(lines[i]); i++; }
         if (i < lines.length) i++;
         paraCounter++;
+        if (lang === 'mermaid') {
+          // Escaped here same as any other fence; the browser decodes entities
+          // back to plain text when mermaid.run() reads .textContent, so this
+          // stays safe against injection without mermaid ever seeing markup.
+          blocks.push({ type: 'mermaid', id: `p-${paraCounter}`,
+            html: `<pre data-pid="p-${paraCounter}" class="mermaid annotatable">${escapeHtml(codeLines.join('\n'))}</pre>` });
+          continue;
+        }
         const langClass = lang ? ` language-${lang}` : '';
         blocks.push({ type: 'pre', id: `p-${paraCounter}`,
           html: `<pre data-pid="p-${paraCounter}" class="annotatable"><code class="hljs${langClass}">${escapeHtml(codeLines.join('\n'))}</code></pre>` });
@@ -885,6 +913,20 @@
       el.dataset.paraN = n;
     });
     renderNav();
+    const mermaidBlocks = docContent.querySelectorAll('pre.mermaid');
+    if (mermaidBlocks.length && window.mermaid) {
+      // mermaid.run() replaces each node's innerHTML with the rendered <svg>,
+      // wiping the ¶N pill appended above — re-add it from the stored dataset
+      // once rendering (success or failure) settles.
+      window.mermaid.run({ nodes: mermaidBlocks, suppressErrors: true }).catch(() => {}).finally(() => {
+        mermaidBlocks.forEach(el => {
+          const num = document.createElement('span');
+          num.className = 'para-num';
+          num.textContent = '¶' + el.dataset.paraN;
+          el.appendChild(num);
+        });
+      });
+    }
   }
 
   // A heading owns every block from itself up to the next heading of equal or
