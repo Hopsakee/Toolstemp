@@ -906,18 +906,25 @@
     let n = 0;
     docContent.querySelectorAll('[data-pid]').forEach(el => {
       n++;
+      el.dataset.paraN = n;
+      // mermaid.run() reads the diagram source back out of the element via
+      // .innerHTML (not .textContent), so appending the pill here — before
+      // mermaid has run — would inject "<span>...</span>" into the diagram
+      // text itself and mermaid would fail to parse it. Skip it for mermaid
+      // blocks; it gets added below once mermaid.run() has replaced the
+      // source with the rendered <svg>.
+      if (el.classList.contains('mermaid')) return;
       const num = document.createElement('span');
       num.className = 'para-num';
       num.textContent = '¶' + n;
       el.appendChild(num);
-      el.dataset.paraN = n;
     });
     renderNav();
     const mermaidBlocks = docContent.querySelectorAll('pre.mermaid');
     if (mermaidBlocks.length && window.mermaid) {
-      // mermaid.run() replaces each node's innerHTML with the rendered <svg>,
-      // wiping the ¶N pill appended above — re-add it from the stored dataset
-      // once rendering (success or failure) settles.
+      // mermaid.run() sets each node's innerHTML to the rendered <svg> —
+      // add the ¶N pill from the stored dataset once rendering (success or
+      // failure) settles.
       window.mermaid.run({ nodes: mermaidBlocks, suppressErrors: true }).catch(() => {}).finally(() => {
         mermaidBlocks.forEach(el => {
           const num = document.createElement('span');
