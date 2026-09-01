@@ -927,7 +927,15 @@
 
   function openMermaidLightbox(svgEl) {
     const clone = svgEl.cloneNode(true);
-    clone.removeAttribute('id');
+    // Keep the id: mermaid's generated <style> (cloned along with it) scopes
+    // every rule as "#<svg-id> .node rect { fill: ... }" etc — confirmed
+    // against createUserStyles()/getStyles() in mermaid's own source, where
+    // the svg's own id is literally the CSS scoping prefix. Stripping it here
+    // used to leave every node/edge unstyled, falling back to raw SVG
+    // defaults (fill: black) — the black-filled diagrams reported after the
+    // first version of this lightbox. A duplicate id while the lightbox is
+    // open is harmless: CSS id-selector matching isn't restricted to a single
+    // element, and the clone is torn down (innerHTML cleared) on close.
     clone.removeAttribute('style');
     // The natural size comes from the viewBox (SVG user units), not the
     // width/height attributes mermaid sets — those are often "100%" so the
