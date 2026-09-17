@@ -106,3 +106,10 @@ title       = "GPX hoogteprofiel"
 icon        = "⛰️"
 category    = "ccv"
 description = "Upload een GPX en bekijk het traject als rode lijn op de kaart, met daaronder een hoogteprofiel gekleurd naar steilheid (donkerblauw daling → donkerrood steile klim). Inzoombaar met level-of-detail, de kaart zoomt mee; tik op het profiel voor het hellingspercentage op die plek. Met de 📍 GPS-knop toont je iPhone je live locatie op de route met km/hoogte/helling."
+
+[[tool]]
+file        = "work-ai-begrippen.html"
+title       = "Veldgids AI-begrippen"
+icon        = "🧭"
+category    = "tools"
+description = "Wat zit er nu eigenlijk in wat? De officiële definities van AI, machine learning, neuraal netwerk, deep learning, generatieve AI en LLM — uit de AI-verordening, ISO/IEC 22989 en de OESO — met één plaat waarop je ziet hoe ze in elkaar passen. Plus de termen die er omheen zwerven en steeds verwisseld worden. Print hem dubbelzijdig en je hebt een boekje."

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Veldgids AI-begrippen: de officiele definities van AI, machine learning, neuraal netwerk, deep learning, generatieve AI en LLM, en hoe ze in elkaar passen.">
+<title>Veldgids AI-begrippen — wat zit er in wat</title>
+<style>
+  /* ============================================================
+     DIGEST MAGAZINE — pages are 5.5x8.5in (half-Letter). They print
+     1:1 (no shrinking) and two sit on a landscape Letter sheet, so
+     Booklet.sh folds them into a real pocket magazine that any duplex
+     printer can make. Design at THIS size: short lines, stacked layouts.
+
+     THEME — swap these accents to fit the subject.
+     Racing/RC = orange. Space = #6d5efc indigo + #22d3ee cyan.
+     Dinosaurs = #2f9e44 green + #e8a33d amber. Ocean = #0ea5e9.
+     Keep --steel dark and --cream light; just swap --orange/--amber.
+     ============================================================ */
+  :root{
+    --ink:#15171c;
+    --ink-soft:#3a3f4a;
+    --muted:#6b7280;
+    --paper:#ffffff;
+    --cream:#faf7f2;
+    --line:#e6e2da;
+    --orange:#4f46e5;       /* primary accent  */
+    --orange-deep:#3730a3;  /* darker accent for small text */
+    --amber:#22d3ee;        /* secondary accent */
+    --steel:#1f2733;        /* dark headings / dark panels */
+    --green:#1f9d6b;
+    --blue:#2563eb;
+  }
+
+  *{ box-sizing:border-box; }
+  @page{ size: 5.5in 8.5in; margin: 11mm 10mm; }   /* digest / half-Letter */
+  @page :first{ margin:0; }
+  html,body{ margin:0; padding:0; }
+  body{ font-family:'Carlito',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:var(--ink); font-size:10.5pt; line-height:1.5; background:var(--paper); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  h1,h2,h3,.display{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; letter-spacing:.2px; }
+
+  /* ============ COVER (fills one digest page) ============ */
+  .cover{ position:relative; height:100vh; background: radial-gradient(700px 380px at 80% -10%, rgba(79,70,229,.40), transparent 55%), linear-gradient(160deg,#10141b 0%, #1b2330 55%, #0c0f15 100%); color:#fff; padding:15mm 13mm; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; page-break-after:always; }
+  .cover::after{ content:""; position:absolute; inset:0; background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 1px, transparent 1px 34px), repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 34px); mask-image:linear-gradient(180deg, transparent, #000 35%, #000 72%, transparent); pointer-events:none; }
+  .cover-top{ position:relative; z-index:2; display:flex; align-items:center; gap:8px; }
+  .badge{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; font-size:9pt; letter-spacing:1.5px; text-transform:uppercase; color:#0c0f15; background:var(--amber); padding:4px 9px; border-radius:4px; }
+  .badge.alt{ background:transparent; color:#cdd5e0; border:1px solid rgba(255,255,255,.25); }
+  .cover-mid{ position:relative; z-index:2; }
+  .kicker{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; text-transform:uppercase; letter-spacing:3px; color:var(--amber); font-weight:600; font-size:10pt; margin-bottom:5px; }
+  .cover h1{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:31pt; line-height:.95; margin:0 0 9px; text-transform:uppercase; letter-spacing:-.5px; }
+  .cover h1 .o{ color:var(--orange); }
+  .cover .sub{ font-size:11pt; color:#d7dde6; max-width:74%; line-height:1.45; }
+  /* Hero photo bottom-right; keep .sub max-width so text & photo never overlap.
+     Tune width/right/bottom to the photo's aspect ratio, then re-render & check. */
+  .cover-hero{ position:absolute; height:auto; right:4px; bottom:132px; z-index:1; width:196px; border-radius:12px; filter:drop-shadow(0 18px 26px rgba(0,0,0,.6)); }
+  .cover-foot{ position:relative; z-index:2; display:flex; justify-content:space-between; align-items:flex-end; border-top:1px solid rgba(255,255,255,.15); padding-top:10px; }
+  .cover-foot .for{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:15pt; font-weight:700; }
+  .cover-foot .for small{ display:block; font-family:'Carlito',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:8pt; font-weight:400; letter-spacing:1.5px; text-transform:uppercase; color:#9aa3b2; }
+  .cover-foot .meta{ text-align:right; font-size:7.5pt; color:#9aa3b2; letter-spacing:.4px; max-width:45%; }
+
+  /* ============ CONTENT ============ */
+  .page{ padding-top:1mm; }
+  .section{ margin-bottom:9px; }
+  .sec-head{ display:flex; align-items:baseline; gap:9px; margin:11px 0 5px; page-break-after:avoid; }
+  .sec-num{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:17pt; color:var(--orange); line-height:1; }
+  .sec-head h2{ font-size:17pt; margin:0; color:var(--steel); font-weight:700; text-transform:uppercase; }
+  .sec-rule{ height:2.5px; background:linear-gradient(90deg,var(--orange), transparent); border-radius:3px; margin:-1px 0 8px; page-break-after:avoid; }
+  p{ margin:0 0 7px; color:var(--ink-soft); }
+  strong{ color:var(--ink); font-weight:600; }
+  .lead{ font-size:11.5pt; color:var(--ink); }
+  h3{ font-size:12.5pt; color:var(--steel); margin:10px 0 3px; font-weight:700; page-break-after:avoid; }
+
+  /* Callouts — at most one standout fact per section */
+  .callout{ border-radius:9px; padding:9px 11px 9px 13px; margin:8px 0; background:var(--cream); border:1px solid var(--line); position:relative; page-break-inside:avoid; }
+  .callout::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:9px 0 0 9px; background:var(--orange); }
+  .callout .ct{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:1px; font-size:10pt; color:var(--orange-deep); margin-bottom:1px; }
+  .callout.tip::before{ background:var(--green); } .callout.tip .ct{ color:var(--green); }
+  .callout.warn::before{ background:var(--amber); } .callout.warn .ct{ color:#b07900; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  /* Cards — STACK by default (the page is narrow). Add .duo for a short side-by-side pair. */
+  .cards{ display:grid; grid-template-columns:1fr; gap:9px; margin:8px 0; }
+  .cards.duo{ grid-template-columns:1fr 1fr; }
+  .card{ border:1px solid var(--line); border-radius:11px; padding:11px 12px; background:#fff; page-break-inside:avoid; box-shadow:0 1px 0 rgba(0,0,0,.03); }
+  .card .tag{ display:inline-block; font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:1px; font-size:8pt; padding:2px 7px; border-radius:20px; background:var(--steel); color:#fff; margin-bottom:5px; }
+  .card .tag.budget{ background:var(--green); } .card .tag.value{ background:var(--orange); } .card .tag.dream{ background:var(--blue); }
+  .card h4{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13pt; margin:1px 0 3px; color:var(--steel); font-weight:700; }
+  .card .price{ font-family:'DejaVu Sans Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-weight:600; font-size:9pt; color:var(--orange-deep); }
+  .card ul{ margin:5px 0 0; padding-left:15px; } .card li{ margin:2px 0; color:var(--ink-soft); }
+  .pcard{ display:flex; flex-direction:column; } /* photo card */
+  .pcard .shot{ width:100%; height:150px; object-fit:contain; background:#fff; margin-bottom:5px; }
+
+  /* Figure: framed custom diagram (inline SVG) with caption. SVG fills can use
+     theme vars (fill="var(--orange)") so diagrams recolor with the issue. */
+  figure.diagram{ margin:8px 0; border:1px solid var(--line); border-radius:11px; background:#fff; padding:10px 10px 7px; page-break-inside:avoid; }
+  figure.diagram svg{ display:block; width:100%; height:auto; }
+  figure.diagram figcaption{ margin-top:6px; font-size:8pt; color:var(--muted); text-align:center; }
+  figure.diagram.dark{ background:var(--steel); border-color:var(--steel); }
+  figure.diagram.dark figcaption{ color:#9fb2c9; }
+
+  /* Tables */
+  table{ width:100%; border-collapse:collapse; margin:8px 0; font-size:9pt; page-break-inside:avoid; }
+  thead th{ background:var(--steel); color:#fff; text-align:left; padding:6px 8px; font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:600; text-transform:uppercase; letter-spacing:.5px; font-size:9.5pt; }
+  thead th:first-child{ border-radius:7px 0 0 0; } thead th:last-child{ border-radius:0 7px 0 0; }
+  tbody td{ padding:5px 8px; border-bottom:1px solid var(--line); color:var(--ink-soft); vertical-align:top; }
+  tbody tr:nth-child(even){ background:var(--cream); }
+  tbody td:first-child{ font-weight:600; color:var(--ink); }
+
+  /* Spec boxes — STACK on the narrow page (mono "how it works" flows) */
+  .spec{ display:grid; grid-template-columns:1fr; gap:9px; margin:8px 0; page-break-inside:avoid; }
+  .spec .box{ background:var(--steel); color:#e7ecf3; border-radius:11px; padding:11px; font-family:'DejaVu Sans Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:8.5pt; line-height:1.45; }
+  .spec .box.bl{ background:linear-gradient(160deg,#1b2735,#0f1722); }
+  .spec .box h4{ font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; color:var(--amber); font-size:12pt; margin:0 0 6px; letter-spacing:.5px; text-transform:uppercase; }
+  .spec .box .flow{ color:#9fb2c9; } .spec .box .flow b{ color:#fff; }
+  .spec .box.bl .flow .hot{ color:#7ee0b0; } .spec .box .hot-red{ color:#ff8a5c; }
+
+  /* Checklist */
+  .check{ list-style:none; padding:0; margin:7px 0; }
+  .check li{ position:relative; padding:6px 9px 6px 34px; border:1px solid var(--line); border-radius:8px; margin-bottom:5px; background:#fff; page-break-inside:avoid; color:var(--ink-soft); }
+  .check li::before{ content:"✓"; position:absolute; left:8px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:5px; background:var(--green); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:10pt; }
+  .check li b{ color:var(--ink); }
+
+  /* Numbered question / step list */
+  .qlist{ counter-reset:q; list-style:none; padding:0; margin:7px 0; }
+  .qlist li{ position:relative; padding:2px 0 8px 34px; page-break-inside:avoid; }
+  .qlist li::before{ counter-increment:q; content:"Q" counter(q); position:absolute; left:0; top:1px; font-family:'DejaVu Sans Condensed','Arial Narrow',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; font-size:10pt; color:#fff; background:var(--orange); width:26px; height:22px; border-radius:5px; display:flex; align-items:center; justify-content:center; }
+  .qlist .q{ font-weight:600; color:var(--ink); display:block; margin-bottom:1px; }
+
+  .divider{ text-align:center; color:var(--orange); letter-spacing:7px; margin:11px 0 5px; font-size:10pt; }
+
+  /* Closing dark panel — strong forced white so bold shows on dark. */
+  .closer{ margin-top:12px; border-radius:12px; padding:15px 17px; background:linear-gradient(150deg,#161c26,#0f1420); color:#fff; page-break-inside:avoid; }
+  .closer h2{ color:#fff; font-size:17pt; margin:0 0 5px; text-transform:uppercase; }
+  .closer p{ color:#c9d2de; }
+  .closer strong{ color:#fff; }
+  .closer .q2{ color:var(--amber); font-weight:600; }
+
+  .footnote{ font-size:7.5pt; color:var(--muted); margin-top:9px; text-align:center; }
+
+  /* ===== SCHERM — print hierboven blijft ongemoeid (@page + @media print) ===== */
+  @media screen{
+    body{ background:var(--cream); font-size:11pt; }
+    .page{ max-width:46rem; margin:0 auto; padding:20px 24px 64px; background:var(--paper);
+           box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    .cover{ height:auto; min-height:92vh;
+            padding-left:max(24px,calc(50% - 23rem)); padding-right:max(24px,calc(50% - 23rem)); }
+    .cover-hero{ right:max(24px,calc(50% - 23rem)); }
+    .cover .sub{ max-width:min(74%,32rem); }
+    figure.diagram svg, img{ max-width:100%; height:auto; }
+  }
+  @media screen and (max-width:640px){
+    .cover-hero{ display:none; }
+    .cover h1{ font-size:25pt; }
+    .cover .sub{ max-width:100%; }
+    .cover-foot{ flex-direction:column; align-items:flex-start; gap:8px; }
+    .cover-foot .meta{ text-align:left; max-width:100%; }
+    table{ font-size:8.5pt; }
+    .spec .box{ font-size:8pt; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <svg class="cover-hero" viewBox="0 0 240 200" role="img" aria-label="Geneste ringen">
+    <rect x="2" y="2" width="236" height="196" rx="16" fill="none" stroke="#3d4757" stroke-width="2"/>
+    <rect x="22" y="24" width="196" height="152" rx="14" fill="none" stroke="#5b6b85" stroke-width="2"/>
+    <rect x="42" y="46" width="156" height="108" rx="12" fill="none" stroke="#22d3ee" stroke-width="2"/>
+    <rect x="62" y="68" width="116" height="64" rx="10" fill="rgba(79,70,229,.35)" stroke="#4f46e5" stroke-width="2"/>
+    <rect x="82" y="86" width="76" height="28" rx="7" fill="#4f46e5"/>
+    <text x="120" y="105" text-anchor="middle" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="15" font-weight="bold" fill="#fff">LLM</text>
+    <text x="10" y="16" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="11" fill="#8695ab">AI</text>
+    <text x="30" y="38" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="11" fill="#9fb2c9">ML</text>
+    <text x="50" y="60" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="11" fill="#22d3ee">NN</text>
+    <text x="70" y="82" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="11" fill="#a5b4fc">DL</text>
+  </svg>
+  <div class="cover-top">
+    <span class="badge">Veldgids</span>
+    <span class="badge alt">AI-begrippen</span>
+  </div>
+  <div class="cover-mid">
+    <div class="kicker">Wat zit er in wat</div>
+    <h1>AI, ML, DL,<br>LLM, GenAI:<br><span class="o">de kaart</span></h1>
+    <p class="sub">De offici&euml;le definities van zes termen die elkaar overlappen &mdash; en precies waar ze in elkaar passen.</p>
+  </div>
+  <div class="cover-foot">
+    <div class="for">WDODelta<small>CIO &middot; Datalab &middot; iedereen aan tafel</small></div>
+    <div class="meta">AI-verordening (EU) 2024/1689 &middot; ISO/IEC 22989:2022 &middot; OESO &middot; september 2026</div>
+  </div>
+</section>
+
+<div class="page">
+
+  <div class="section">
+    <p class="lead">Zes termen, &eacute;&eacute;n vergadering, en niemand die doorvraagt.</p>
+    <p>&ldquo;We gaan iets met AI doen.&rdquo; Iemand zegt machine learning, iemand anders zegt LLM, de notulen maken er generatieve AI van. Drie mensen knikken en bedoelen drie verschillende dingen. Dat kost pas echt geld als er een leverancier aan tafel zit, of als iemand moet beoordelen of de AI-verordening van toepassing is.</p>
+    <p>De termen zijn niet vaag. Ze hebben vastgelegde definities &mdash; in Europese wetgeving, in een ISO-norm, in een OESO-aanbeveling &mdash; en ze passen in een vaste volgorde in elkaar. Deze gids zet die volgorde op &eacute;&eacute;n plaat, geeft per term de bron, en benoemt de plek waar het in de praktijk misgaat.</p>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Begin bij de definitie die bindt</h2></div>
+    <div class="sec-rule"></div>
+    <p>Sinds de AI-verordening geldt, is &ldquo;AI&rdquo; geen marketingwoord meer maar een juridische categorie. Artikel&nbsp;3, lid&nbsp;1 omschrijft een AI-systeem als:</p>
+    <div class="callout"><div class="ct">Verordening (EU) 2024/1689, art. 3(1)</div><p>&ldquo;Een machinaal systeem dat is ontworpen om met verschillende niveaus van autonomie te werken en dat na de uitrol aanpassingsvermogen kan vertonen en dat, voor expliciete of impliciete doelstellingen, uit de ontvangen input <strong>afleidt</strong> hoe output te genereren zoals voorspellingen, inhoud, aanbevelingen of beslissingen die van invloed kunnen zijn op fysieke of virtuele omgevingen.&rdquo;</p></div>
+    <p>Het scharnier zit in dat ene werkwoord. Een rekenblad met vaste formules leidt niets af: iemand heeft de regels opgeschreven. Een getraind model leidt zijn regels zelf af uit data. Dat onderscheid bepaalt of iets binnen of buiten de verordening valt, en het is hetzelfde onderscheid dat de rest van deze gids draagt.</p>
+    <p>De EU heeft die formulering niet zelf bedacht. Ze komt vrijwel woordelijk uit de herziene <strong>OESO-definitie</strong>, die de lidstaten in november 2023 goedkeurden en die inmiddels ook in de Verenigde Staten, de Raad van Europa en bij de VN als referentie geldt. E&eacute;n definitie, meerdere jurisdicties.</p>
+  </div>
+
+  <div class="section">
+    <h3>AI is een vakgebied, geen product</h3>
+    <p>ISO/IEC 22989:2022 &mdash; de internationale terminologienorm voor AI &mdash; maakt een onderscheid dat in vergaderingen consequent wegvalt.</p>
+    <div class="cards">
+      <div class="card"><span class="tag">3.1.3</span><h4>Artificial intelligence</h4><p>Een <strong>discipline</strong>: het onderzoek naar en de ontwikkeling van mechanismen en toepassingen van AI-systemen. Het put uit informatica, datawetenschap, wiskunde, natuurwetenschappen en geesteswetenschappen.</p></div>
+      <div class="card"><span class="tag value">3.1.4</span><h4>AI-systeem</h4><p>Een <strong>ontworpen systeem</strong> dat output voortbrengt &mdash; inhoud, voorspellingen, aanbevelingen of beslissingen &mdash; voor een door mensen bepaalde set doelstellingen.</p></div>
+    </div>
+    <p>Je koopt dus nooit &ldquo;AI&rdquo;. Je koopt een AI-systeem, gebouwd met methoden uit het vakgebied AI. Wie het verschil vasthoudt, stelt automatisch de betere vraag: welk systeem precies, en wat leidt het af?</p>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Zet de termen in elkaar</h2></div>
+    <div class="sec-rule"></div>
+    <p>Drie van de zes termen passen strikt in elkaar, als matroesjka&rsquo;s. De andere twee doen iets anders: die snijden er dwars doorheen.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 600 372" role="img" aria-label="Geneste kaders: AI bevat machine learning, dat neurale netwerken bevat, dat deep learning bevat; generatieve AI ligt er als dwarsdoorsnede overheen met LLM in de overlap">
+        <rect x="0" y="0" width="600" height="372" fill="var(--cream)"/>
+        <rect x="12" y="12" width="576" height="330" rx="16" fill="#eef0f4" stroke="#aab2c0" stroke-width="2"/>
+        <rect x="46" y="54" width="508" height="250" rx="14" fill="#e3e7f5" stroke="#8d9ac4" stroke-width="2"/>
+        <rect x="80" y="96" width="440" height="170" rx="12" fill="#d5dcf3" stroke="#6d7fc0" stroke-width="2"/>
+        <rect x="114" y="138" width="372" height="90" rx="10" fill="#c3cbf2" stroke="var(--orange)" stroke-width="2"/>
+        <rect x="128" y="176" width="300" height="118" rx="12" fill="rgba(34,211,238,.20)" stroke="#0e93ab" stroke-width="2.5" stroke-dasharray="7 5"/>
+        <rect x="150" y="186" width="168" height="34" rx="8" fill="var(--orange)"/>
+        <text x="234" y="209" text-anchor="middle" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="15" font-weight="bold" fill="#fff">LLM</text>
+        <text x="26" y="36" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="15" font-weight="bold" fill="#4a5263">ARTIFICIAL INTELLIGENCE</text>
+        <text x="60" y="78" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="14" font-weight="bold" fill="#48539a">MACHINE LEARNING</text>
+        <text x="94" y="120" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="13" font-weight="bold" fill="#3f4d96">NEURAAL NETWERK</text>
+        <text x="128" y="161" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="13" font-weight="bold" fill="var(--orange-deep)">DEEP LEARNING</text>
+        <text x="286" y="284" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="13" font-weight="bold" fill="#0b6d80">GENERATIEVE AI</text>
+        <text x="452" y="32" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">regels, zoeken,</text>
+        <text x="452" y="45" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">optimalisatie</text>
+        <text x="330" y="90" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">random forest, regressie</text>
+        <text x="330" y="132" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">&eacute;&eacute;n verborgen laag</text>
+        <line x1="300" y1="296" x2="300" y2="322" stroke="#0e93ab" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="312" y="330" font-family="Carlito, system-ui, sans-serif" font-size="11.5" fill="#0b6d80">steekt door de kaders heen</text>
+      </svg>
+      <figcaption>Drie kaders nesten strikt. Generatieve AI is geen kader maar een dwarsdoorsnede &mdash; en een LLM ligt in de overlap.</figcaption>
+    </figure>
+    <p>Lees de plaat van buiten naar binnen. <strong>Elke</strong> LLM is deep learning, is een neuraal netwerk, is machine learning, is AI. Omgekeerd geldt dat niet: de meeste AI is geen LLM, en een flinke hoeveelheid AI is zelfs helemaal geen machine learning &mdash; routeplanning, roosteroptimalisatie en klassieke regelsystemen horen in de buitenste ring.</p>
+    <div class="callout tip"><div class="ct">De zin die het samenvat</div><p>Generatieve AI zegt iets over <strong>wat eruit komt</strong>. De drie ringen zeggen iets over <strong>hoe het gebouwd is</strong>. Daarom is het een doorsnede en geen laag.</p></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Machine learning leert uit data</h2></div>
+    <div class="sec-rule"></div>
+    <p>Arthur Samuel muntte de term in 1959, in een artikel over een computerprogramma dat dammen leerde spelen op een IBM&nbsp;701. ISO/IEC 22989 houdt het strak: machine learning is een proces waarin algoritmen beter worden door ervaring. Die ervaring is data.</p>
+    <p>Het verschil met gewone software zit in de richting waarin je werkt.</p>
+    <div class="spec">
+      <div class="box"><h4>Klassieke software</h4>
+        <div class="flow"><b>REGELS</b> + <b>DATA</b><br>&nbsp;&nbsp;&#8595;<br>programma voert uit<br>&nbsp;&nbsp;&#8595;<br><span class="hot-red">antwoord</span></div>
+        <p style="color:#9fb2c9;margin:7px 0 0">Een mens schrijft de regels op. Het programma past ze toe. Werkt uitstekend zolang iemand de regels k&eacute;nt.</p>
+      </div>
+      <div class="box bl"><h4>Machine learning</h4>
+        <div class="flow"><b>DATA</b> + <b>ANTWOORDEN</b><br>&nbsp;&nbsp;&#8595;<br>training<br>&nbsp;&nbsp;&#8595;<br><span class="hot">de regels (het model)</span></div>
+        <p style="color:#9fb2c9;margin:7px 0 0">Je geeft voorbeelden &eacute;n uitkomsten; de training leidt de regels af. Daarna gebruik je het model op nieuwe data.</p>
+      </div>
+    </div>
+    <p>Dat is precies het &ldquo;afleiden&rdquo; uit artikel&nbsp;3(1). Een waterstandsvoorspelling op basis van historische reeksen leert uit data; een peilbesluit dat als formule in een rekenblad staat, niet.</p>
+    <h3>Drie manieren van leren</h3>
+    <ul class="check">
+      <li><b>Supervised learning.</b> Data met de juiste antwoorden erbij. Voorspellen, classificeren. Verreweg het meeste werk in de praktijk.</li>
+      <li><b>Unsupervised learning.</b> Data zonder antwoorden; het model zoekt zelf structuur. Clusteren, anomaliedetectie.</li>
+      <li><b>Reinforcement learning.</b> Leren door te doen en beloond of gestraft te worden. Regelen, sturen, spelen.</li>
+    </ul>
+    <p>Deze drie zijn <strong>leervormen</strong>, geen modeltypen. Ze staan los van de vraag of er een neuraal netwerk onder zit.</p>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Deep learning telt lagen</h2></div>
+    <div class="sec-rule"></div>
+    <p>Een neuraal netwerk is een model dat qua opzet is ge&iuml;nspireerd op biologische neuronen: eenheden die signalen doorgeven, met gewichten die tijdens de training worden bijgesteld. Frank Rosenblatt bouwde in 1958 de eerste, de perceptron.</p>
+    <p>Deep learning is geen andere soort. Het is hetzelfde idee met veel meer verborgen lagen &mdash; in ISO-termen: het trainen van neurale netwerken met veel verborgen lagen, om rijke, hi&euml;rarchische representaties op te bouwen. Laag voor laag leert het netwerk abstractere kenmerken.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 600 220" role="img" aria-label="Een ondiep netwerk met een verborgen laag naast een diep netwerk met vier verborgen lagen">
+        <rect x="0" y="0" width="600" height="220" fill="var(--cream)"/>
+        <text x="16" y="22" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="14" font-weight="bold" fill="#4a5263">ONDIEP &middot; 1 VERBORGEN LAAG</text>
+        <g stroke="#b9c0cf" stroke-width="1">
+          <line x1="40" y1="60" x2="120" y2="52"/><line x1="40" y1="60" x2="120" y2="90"/><line x1="40" y1="60" x2="120" y2="128"/>
+          <line x1="40" y1="100" x2="120" y2="52"/><line x1="40" y1="100" x2="120" y2="90"/><line x1="40" y1="100" x2="120" y2="128"/>
+          <line x1="40" y1="140" x2="120" y2="52"/><line x1="40" y1="140" x2="120" y2="90"/><line x1="40" y1="140" x2="120" y2="128"/>
+          <line x1="120" y1="52" x2="200" y2="100"/><line x1="120" y1="90" x2="200" y2="100"/><line x1="120" y1="128" x2="200" y2="100"/>
+        </g>
+        <g fill="#8d9ac4"><circle cx="40" cy="60" r="8"/><circle cx="40" cy="100" r="8"/><circle cx="40" cy="140" r="8"/></g>
+        <g fill="var(--orange)"><circle cx="120" cy="52" r="8"/><circle cx="120" cy="90" r="8"/><circle cx="120" cy="128" r="8"/></g>
+        <circle cx="200" cy="100" r="8" fill="#0e93ab"/>
+        <text x="20" y="178" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">input</text>
+        <text x="100" y="178" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">verborgen</text>
+        <text x="184" y="178" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">output</text>
+        <line x1="270" y1="24" x2="270" y2="196" stroke="#cbd2df" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="300" y="22" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="14" font-weight="bold" fill="var(--orange-deep)">DIEP &middot; 4 VERBORGEN LAGEN</text>
+        <g stroke="#b9c0cf" stroke-width=".7">
+          <line x1="306" y1="60" x2="362" y2="52"/><line x1="306" y1="60" x2="362" y2="100"/><line x1="306" y1="60" x2="362" y2="148"/>
+          <line x1="306" y1="100" x2="362" y2="52"/><line x1="306" y1="100" x2="362" y2="100"/><line x1="306" y1="100" x2="362" y2="148"/>
+          <line x1="306" y1="140" x2="362" y2="52"/><line x1="306" y1="140" x2="362" y2="100"/><line x1="306" y1="140" x2="362" y2="148"/>
+          <line x1="362" y1="52" x2="418" y2="52"/><line x1="362" y1="52" x2="418" y2="100"/><line x1="362" y1="52" x2="418" y2="148"/>
+          <line x1="362" y1="100" x2="418" y2="52"/><line x1="362" y1="100" x2="418" y2="100"/><line x1="362" y1="100" x2="418" y2="148"/>
+          <line x1="362" y1="148" x2="418" y2="52"/><line x1="362" y1="148" x2="418" y2="100"/><line x1="362" y1="148" x2="418" y2="148"/>
+          <line x1="418" y1="52" x2="474" y2="52"/><line x1="418" y1="52" x2="474" y2="100"/><line x1="418" y1="52" x2="474" y2="148"/>
+          <line x1="418" y1="100" x2="474" y2="52"/><line x1="418" y1="100" x2="474" y2="100"/><line x1="418" y1="100" x2="474" y2="148"/>
+          <line x1="418" y1="148" x2="474" y2="52"/><line x1="418" y1="148" x2="474" y2="100"/><line x1="418" y1="148" x2="474" y2="148"/>
+          <line x1="474" y1="52" x2="530" y2="52"/><line x1="474" y1="52" x2="530" y2="100"/><line x1="474" y1="52" x2="530" y2="148"/>
+          <line x1="474" y1="100" x2="530" y2="52"/><line x1="474" y1="100" x2="530" y2="100"/><line x1="474" y1="100" x2="530" y2="148"/>
+          <line x1="474" y1="148" x2="530" y2="52"/><line x1="474" y1="148" x2="530" y2="100"/><line x1="474" y1="148" x2="530" y2="148"/>
+          <line x1="530" y1="52" x2="578" y2="100"/><line x1="530" y1="100" x2="578" y2="100"/><line x1="530" y1="148" x2="578" y2="100"/>
+        </g>
+        <g fill="#8d9ac4"><circle cx="306" cy="60" r="7"/><circle cx="306" cy="100" r="7"/><circle cx="306" cy="140" r="7"/></g>
+        <g fill="var(--orange)"><circle cx="362" cy="52" r="7"/><circle cx="362" cy="100" r="7"/><circle cx="362" cy="148" r="7"/><circle cx="418" cy="52" r="7"/><circle cx="418" cy="100" r="7"/><circle cx="418" cy="148" r="7"/><circle cx="474" cy="52" r="7"/><circle cx="474" cy="100" r="7"/><circle cx="474" cy="148" r="7"/><circle cx="530" cy="52" r="7"/><circle cx="530" cy="100" r="7"/><circle cx="530" cy="148" r="7"/></g>
+        <circle cx="578" cy="100" r="7" fill="#0e93ab"/>
+        <text x="352" y="196" font-family="Carlito, system-ui, sans-serif" font-size="11" fill="#6b7280">elke laag leert abstractere kenmerken</text>
+      </svg>
+      <figcaption>Hetzelfde soort model. Het verschil is het aantal lagen ertussen.</figcaption>
+    </figure>
+    <div class="callout warn"><div class="ct">Let op</div><p>&ldquo;Diep&rdquo; telt lagen, niet diepgang. En andersom: lang niet elk machine-learningmodel is een neuraal netwerk. Random forest, gradient boosting en logistische regressie zitten in de ML-ring en daar houdt het op &mdash; vaak met beter resultaat op tabeldata dan een diep netwerk.</p></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Generatieve AI gaat over de output</h2></div>
+    <div class="sec-rule"></div>
+    <p>Hier stapt de indeling van techniek naar resultaat. Een voorspellend model kiest uit antwoorden die je vooraf hebt vastgelegd: een getal, een klasse, een kans. Een generatief model maakt iets nieuws dat niet in de trainingsdata stond &mdash; tekst, beeld, geluid, code.</p>
+    <table>
+      <thead><tr><th>&nbsp;</th><th>Voorspellend</th><th>Generatief</th></tr></thead>
+      <tbody>
+        <tr><td>Output</td><td>Getal, klasse of kans.</td><td>Nieuwe inhoud.</td></tr>
+        <tr><td>Vraag</td><td>&ldquo;Hoe hoog wordt het peil?&rdquo;</td><td>&ldquo;Schrijf de toelichting.&rdquo;</td></tr>
+        <tr><td>Bij ons</td><td>Waterstandsvoorspelling, afvalwaterprognose, kwaliteitsclassificatie.</td><td>Vraagbaak op beleidsdocumenten, conceptrapportage, code-assistent.</td></tr>
+        <tr><td>Fout ziet eruit als</td><td>Ernaast zitten. Meetbaar.</td><td>Vloeiend en verkeerd. Leest als goed.</td></tr>
+        <tr><td>Toetsen</td><td>Vergelijken met de werkelijkheid.</td><td>Vergelijken met de bron. Kost een mens.</td></tr>
+      </tbody>
+    </table>
+    <p>Beide zijn AI en beide kunnen deep learning zijn. Het onderscheid dat telt is de foutmodus: bij een voorspelling zie je afwijking in een grafiek, bij gegenereerde tekst zie je haar niet.</p>
+    <div class="callout"><div class="ct">Wat de wet hier doet</div><p>De AI-verordening definieert &ldquo;generatieve AI&rdquo; nergens. Ze vangt het via twee andere routes: overweging&nbsp;99 noemt grote generatieve modellen het typische voorbeeld van een AI-model voor algemene doeleinden, en artikel&nbsp;50 legt transparantieplichten op aan systemen die synthetische tekst, beeld, audio of video voortbrengen &mdash; die output moet machineleesbaar gemarkeerd zijn.</p></div>
+    <p>Praktisch gevolg voor ons: &ldquo;wij doen al jaren AI&rdquo; is waar, en &ldquo;wij doen generatieve AI&rdquo; is meestal onwaar. Dat zijn verschillende gesprekken, met verschillende risico&rsquo;s en verschillende verplichtingen.</p>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Een LLM voorspelt het volgende stukje tekst</h2></div>
+    <div class="sec-rule"></div>
+    <p>Een large language model is een diep neuraal netwerk dat op zeer veel tekst is getraind met &eacute;&eacute;n taak: voorspel het volgende stukje tekst. De architectuur eronder heet doorgaans de <strong>transformer</strong>, ge&iuml;ntroduceerd door acht Google-onderzoekers in juni 2017 in <em>Attention Is All You Need</em>. De term LLM zelf ontstond rond 2020, toen GPT-3 met 175&nbsp;miljard parameters te groot werd om nog &ldquo;taalmodel&rdquo; te heten.</p>
+    <div class="spec">
+      <div class="box"><h4>Wat er bij elke stap gebeurt</h4>
+        <div class="flow"><b>PROMPT</b><br>&nbsp;&nbsp;&#8595;<br>opknippen in tokens<br>&nbsp;&nbsp;&#8595;<br>netwerk weegt de context<br>&nbsp;&nbsp;&#8595;<br>kansverdeling over het volgende token<br>&nbsp;&nbsp;&#8595;<br>er wordt &eacute;&eacute;n token gekozen<br>&nbsp;&nbsp;&#8595;<br><span class="hot">token erbij &rarr; opnieuw</span></div>
+        <p style="color:#9fb2c9;margin:7px 0 0">Er wordt niets opgezocht. Er wordt geteld wat waarschijnlijk volgt, token voor token, tot het antwoord af is.</p>
+      </div>
+    </div>
+    <p>Drie woorden die hier vandaan komen en die je vaak hoort. Een <strong>token</strong> is zo&rsquo;n stukje tekst, ruwweg een lettergreep of kort woord. <strong>Parameters</strong> zijn de gewichten die tijdens de training zijn bijgesteld &mdash; het model zelf. Het <strong>contextvenster</strong> is hoeveel tokens er tegelijk in kunnen; alles daarbuiten bestaat voor het model niet.</p>
+    <div class="callout warn"><div class="ct">Waarom hallucinatie geen bug is</div><p>Een model dat het waarschijnlijke vervolg berekent, heeft geen aparte feitenopslag om tegen te toetsen. Vloeiend en verzonnen liggen daarom dicht bij elkaar. Je patcht dat niet weg; je organiseert eromheen &mdash; met bronnen in de prompt, en met een mens die controleert.</p></div>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">07</span><h2>De termen die er nog omheen zwerven</h2></div>
+    <div class="sec-rule"></div>
+    <p>Zes termen kruisen elkaar zelden alleen. Dit zijn de buren die in dezelfde zin opduiken en net zo vaak verwisseld worden.</p>
+    <h3>Model, systeem, toepassing</h3>
+    <table>
+      <thead><tr><th>Term</th><th>Wat het is</th><th>Waar het misgaat</th></tr></thead>
+      <tbody>
+        <tr><td>Model</td><td>Het getrainde resultaat: architectuur plus gewichten. Een bestand.</td><td>Een model doet in zijn eentje niets. Het heeft een systeem om zich heen nodig.</td></tr>
+        <tr><td>AI-systeem</td><td>Het model plus alles eromheen: invoer, uitvoer, interface, logging.</td><td>Model en systeem door elkaar halen. De verordening reguleert ze apart, met andere plichten.</td></tr>
+        <tr><td>AI-model voor algemene doeleinden</td><td>Art. 3(63): een model met aanzienlijke algemeenheid, dat uiteenlopende taken aankan en in veel systemen kan worden ingebouwd.</td><td>Dit is de juridische term. &ldquo;Basismodel&rdquo; (foundation model) is geschrapt uit de wettekst en hierdoor vervangen.</td></tr>
+        <tr><td>Foundation model</td><td>Vakterm van Stanford CRFM, augustus 2021: een model dat je eerst bouwt en daarna aanpast voor taken.</td><td>Prima in een technisch gesprek, maar het staat niet in de verordening.</td></tr>
+      </tbody>
+    </table>
+    <h3>Buren die vaak voor AI doorgaan</h3>
+    <table>
+      <thead><tr><th>Term</th><th>Wat het is</th><th>Waar het misgaat</th></tr></thead>
+      <tbody>
+        <tr><td>Algoritme</td><td>Een eindige reeks stappen die een taak uitvoert.</td><td>Elk programma zit vol algoritmen. Niet elk algoritme is AI.</td></tr>
+        <tr><td>Automatisering</td><td>Een taak zonder mens laten lopen, volgens vaste regels.</td><td>Geen afleiding uit data, dus doorgaans geen AI-systeem.</td></tr>
+        <tr><td>Data science</td><td>Het vak van waarde halen uit data: statistiek, analyse, visualisatie, soms ML.</td><td>Overlapt met ML maar valt er niet mee samen. Het meeste werk is geen AI.</td></tr>
+        <tr><td>NLP, computer vision</td><td>Toepassingsgebieden: taal, beeld.</td><td>Dat zijn domeinen, geen technieken. Ze kunnen met of zonder ML worden ingevuld.</td></tr>
+      </tbody>
+    </table>
+    <h3>Woorden van de laatste jaren</h3>
+    <table>
+      <thead><tr><th>Term</th><th>Wat het is</th><th>Waar het misgaat</th></tr></thead>
+      <tbody>
+        <tr><td>RAG</td><td>Eerst zoeken in eigen documenten, die passages in de prompt zetten, dan pas laten genereren.</td><td>Een architectuur rond het model, geen modeltype. Verkleint hallucinatie, sluit haar niet uit.</td></tr>
+        <tr><td>AI-agent</td><td>Een model dat gereedschap mag gebruiken en in een lus naar een doel toewerkt.</td><td>Gaat over autonomie, niet over modelsoort. Precies waar de verordening naar autonomieniveau kijkt.</td></tr>
+        <tr><td>Prompt engineering</td><td>Het formuleren van de invoer zodat de uitvoer bruikbaar is.</td><td>Het is invoerontwerp. Er verandert niets aan het model.</td></tr>
+        <tr><td>Hallucinatie</td><td>Plausibele maar onjuiste output.</td><td>Klinkt als een storing. Het is een eigenschap van kansvoorspelling.</td></tr>
+        <tr><td>AGI</td><td>Hypothetische AI die zo breed is als een mens.</td><td>Bestaat niet. Alles wat draait is smalle AI: goed in &eacute;&eacute;n ding.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Het vocabulaire is ouder dan de hype</h2></div>
+    <div class="sec-rule"></div>
+    <p>Vier van deze woorden zijn bedacht voordat er een computer stond die er iets mee kon. Dat helpt tegen het gevoel dat alles van gisteren is &mdash; en het verklaart waarom de definities strenger zijn dan de verkooppraatjes.</p>
+    <figure class="diagram dark">
+      <svg viewBox="0 0 600 476" role="img" aria-label="Verticale tijdlijn van 1955 tot 2024 met acht mijlpalen">
+        <line x1="104" y1="24" x2="104" y2="452" stroke="#3d4757" stroke-width="2"/>
+        <circle cx="104" cy="35" r="6" fill="var(--amber)"/>
+        <text x="84" y="40" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">1955</text>
+        <text x="126" y="34" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">&ldquo;artificial intelligence&rdquo;</text>
+        <text x="126" y="52" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">McCarthy c.s., voorstel voor Dartmouth</text>
+        <circle cx="104" cy="89" r="6" fill="var(--amber)"/>
+        <text x="84" y="94" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">1958</text>
+        <text x="126" y="88" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">perceptron</text>
+        <text x="126" y="106" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">Rosenblatt bouwt het eerste neurale netwerk</text>
+        <circle cx="104" cy="143" r="6" fill="var(--amber)"/>
+        <text x="84" y="148" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">1959</text>
+        <text x="126" y="142" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">&ldquo;machine learning&rdquo;</text>
+        <text x="126" y="160" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">Samuel, een programma dat leert dammen</text>
+        <circle cx="104" cy="197" r="6" fill="var(--amber)"/>
+        <text x="84" y="202" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">2017</text>
+        <text x="126" y="196" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">transformer</text>
+        <text x="126" y="214" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">&ldquo;Attention Is All You Need&rdquo;, acht Google-onderzoekers</text>
+        <circle cx="104" cy="251" r="6" fill="var(--amber)"/>
+        <text x="84" y="256" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">2020</text>
+        <text x="126" y="250" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">&ldquo;LLM&rdquo; raakt in gebruik</text>
+        <text x="126" y="268" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">GPT-3, 175 miljard parameters</text>
+        <circle cx="104" cy="305" r="6" fill="var(--amber)"/>
+        <text x="84" y="310" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">2021</text>
+        <text x="126" y="304" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">&ldquo;foundation model&rdquo;</text>
+        <text x="126" y="322" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">Stanford CRFM muntte de term</text>
+        <circle cx="104" cy="359" r="6" fill="var(--amber)"/>
+        <text x="84" y="364" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">2023</text>
+        <text x="126" y="358" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">OESO herziet de definitie</text>
+        <text x="126" y="376" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">van &ldquo;AI-systeem&rdquo;; de EU neemt haar over</text>
+        <circle cx="104" cy="413" r="6" fill="var(--amber)"/>
+        <text x="84" y="418" text-anchor="end" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="19" font-weight="bold" fill="var(--amber)">2024</text>
+        <text x="126" y="412" font-family="DejaVu Sans Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="bold" fill="#ffffff">AI-verordening</text>
+        <text x="126" y="430" font-family="Carlito, system-ui, sans-serif" font-size="14" fill="#a9b6c7">Verordening (EU) 2024/1689</text>
+      </svg>
+      <figcaption>De tijdlijn is niet op schaal. Tussen 1959 en 2017 gebeurde genoeg; alleen kwamen er weinig nieuwe woorden bij.</figcaption>
+    </figure>
+  </div>
+
+  <div class="closer">
+    <h2>Drie vragen voor de volgende vergadering</h2>
+    <p>Je hoeft de definities niet uit je hoofd te kennen. Je hebt genoeg aan drie vragen die elk voorstel dwingen om concreet te worden, en die samen de hele kaart aflopen.</p>
+    <p><strong>1. Wat komt eruit?</strong> Een getal of een klasse, of gegenereerde inhoud? Dat bepaalt hoe een fout eruitziet en wie hem moet vangen.</p>
+    <p><strong>2. Leert het uit data, of volgt het regels die iemand heeft opgeschreven?</strong> Dat is het &ldquo;afleiden&rdquo; uit artikel&nbsp;3(1), en daarmee de grens van de verordening.</p>
+    <p><strong>3. Praten we over een model of over een systeem?</strong> Daar hangt aan wie welke plicht heeft &mdash; de leverancier van het model, of wij als gebruiksverantwoordelijke.</p>
+    <p class="q2">Bij welk AI-voorstel op jouw bureau kun je vraag 1 nu niet in &eacute;&eacute;n zin beantwoorden?</p>
+  </div>
+  <p class="footnote">Veldgids AI-begrippen &middot; september 2026 &middot; Definities: Verordening (EU) 2024/1689 (art. 3(1), art. 3(63), art. 50, overweging 99), ISO/IEC 22989:2022 (3.1.3 en 3.1.4), OESO-aanbeveling inzake AI. ISO-formuleringen zijn parafrases: de norm is niet vrij toegankelijk. Wetgeving en terminologie schuiven; toets bij twijfel de brontekst.</p>
+
+</div>
+</body>
+</html>
