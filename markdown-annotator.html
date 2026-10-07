@@ -587,6 +587,7 @@
     <input type="text" class="reviewer-input" id="reviewer" placeholder="Jouw naam (voor de export)">
     <div class="file-status">
       <span class="file-pill" id="mdPill">document.md</span>
+      <span class="file-pill" id="autosavePill" style="display:none"></span>
     </div>
   </div>
   <div class="masthead-right">
@@ -1659,6 +1660,8 @@
     reader.onload = (e) => {
       mdFilename = file.name;
       mdPillEl.textContent = file.name;
+      jsonHandle = null;
+      updateAutosavePill();
       annotations = [];
       nextId = 1;
       renderDocument(e.target.result);
@@ -1672,6 +1675,7 @@
         pendingJsonEl.style.display = 'none';
       } else {
         showToast(file.name + ' geladen');
+        offerDraftRestore();
       }
       savedSnapshot = snapshot();
     };
@@ -1754,8 +1758,21 @@
     e.target.value = '';
   });
 
-  document.getElementById('saveJsonBtn').addEventListener('click', () => {
-    const payload = {
+  // Annotaties opslaan: met de File System Access API (Chromium) schrijven we steeds naar
+  // hetzelfde bestand (geen "(1)"-achtervoegsel) en werkt autosave. Andere browsers vallen
+  // terug op een download plus een concept in localStorage.
+  const canPickFile = typeof window.showSaveFilePicker === 'function';
+  const AUTOSAVE_MS = 15000;
+  let jsonHandle = null;
+  const autosavePill = document.getElementById('autosavePill');
+
+  function updateAutosavePill(text) {
+    autosavePill.style.display = (jsonHandle || text) ? '' : 'none';
+    autosavePill.textContent = text || (jsonHandle ? 'autosave aan: ' + jsonHandle.name : '');
+  }
+
+  function buildPayload() {
+    return {
       version: 2,
       document_filename: mdFilename,
       document_title: documentTitle,
@@ -1772,10 +1789,74 @@
         created_at: a.created_at || new Date().toISOString()
       }))
     };
-    download(JSON.stringify(payload, null, 2), suggestFilename('json', 'annotations'), 'application/json');
+  }
+
+  const payloadJson = () => JSON.stringify(buildPayload(), null, 2);
+
+  async function writeToHandle() {
+    const writable = await jsonHandle.createWritable();
+    await writable.write(payloadJson());
+    await writable.close();
+    savedSnapshot = snapshot();
+  }
+
+  const draftKey = () => 'annoteer_draft_' + mdFilename;
+  let draftSnapshot = null;
+  function saveDraft() {
+    const snap = snapshot();
+    if (snap === draftSnapshot) return;
+    draftSnapshot = snap;
+    try { localStorage.setItem(draftKey(), JSON.stringify(buildPayload())); } catch (e) {}
+  }
+  function offerDraftRestore() {
+    let raw = null;
+    try { raw = localStorage.getItem(draftKey()); } catch (e) {}
+    if (!raw || annotations.length > 0) return;
+    try {
+      const data = JSON.parse(raw);
+      if (!data.annotations || !data.annotations.length) return;
+      if (confirm(`Er is een automatisch bewaard concept (${data.annotations.length} annotaties, ${data.exported_at.slice(0, 16).replace('T', ' ')}). Herstellen?`)) {
+        loadAnnotationsData(data);
+        showToast('Concept hersteld');
+      }
+    } catch (e) {}
+  }
+
+  document.getElementById('saveJsonBtn').addEventListener('click', async () => {
+    if (canPickFile) {
+      try {
+        if (!jsonHandle) {
+          jsonHandle = await window.showSaveFilePicker({
+            suggestedName: suggestFilename('json', 'annotations'),
+            types: [{ description: 'Annotaties', accept: { 'application/json': ['.json'] } }]
+          });
+        }
+        await writeToHandle();
+        updateAutosavePill();
+        showToast('Annotaties opgeslagen in ' + jsonHandle.name);
+      } catch (e) {
+        if (e.name !== 'AbortError') showToast('Opslaan mislukt: ' + e.message, true);
+      }
+      return;
+    }
+    download(payloadJson(), suggestFilename('json', 'annotations'), 'application/json');
     savedSnapshot = snapshot();
     showToast('Annotaties opgeslagen als .json');
   });
+
+  setInterval(async () => {
+    if (snapshot() === savedSnapshot) return;
+    if (jsonHandle) {
+      try {
+        await writeToHandle();
+        updateAutosavePill('autosave ' + new Date().toLocaleTimeString('nl-NL') + ': ' + jsonHandle.name);
+      } catch (e) {
+        updateAutosavePill('autosave mislukt');
+      }
+    } else if (annotations.length > 0 || generalNotes.value.trim()) {
+      saveDraft();
+    }
+  }, AUTOSAVE_MS);
 
   document.getElementById('exportMdBtn').addEventListener('click', () => {
     const now = new Date();
