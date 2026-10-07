@@ -1791,15 +1791,21 @@
     };
   }
 
+  const payloadJson = () => JSON.stringify(buildPayload(), null, 2);
+
   async function writeToHandle() {
     const writable = await jsonHandle.createWritable();
-    await writable.write(JSON.stringify(buildPayload(), null, 2));
+    await writable.write(payloadJson());
     await writable.close();
     savedSnapshot = snapshot();
   }
 
   const draftKey = () => 'annoteer_draft_' + mdFilename;
+  let draftSnapshot = null;
   function saveDraft() {
+    const snap = snapshot();
+    if (snap === draftSnapshot) return;
+    draftSnapshot = snap;
     try { localStorage.setItem(draftKey(), JSON.stringify(buildPayload())); } catch (e) {}
   }
   function offerDraftRestore() {
@@ -1833,7 +1839,7 @@
       }
       return;
     }
-    download(JSON.stringify(buildPayload(), null, 2), suggestFilename('json', 'annotations'), 'application/json');
+    download(payloadJson(), suggestFilename('json', 'annotations'), 'application/json');
     savedSnapshot = snapshot();
     showToast('Annotaties opgeslagen als .json');
   });
