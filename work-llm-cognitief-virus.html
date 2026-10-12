@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Interactief model: hoe verspreidt LLM-gebruik zich door een populatie en wanneer kantelt zelf denken naar afhankelijkheid? Gebaseerd op Solé et al., 'Large-Language Models as a Cognitive Virus'.">
+<title>LLM als cognitief virus — kantelpunten</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b2430; --muted:#5b6676; --line:#dde2ea;
+    --accent:#3b5bdb; --warn-bg:#fff6e0; --ok-bg:#e8f6ee; --bad-bg:#fdeceb; --info-bg:#eaf0ff;
+    --cU:#2f9e6e; --cC:#e0961f; --cD:#c8553d; --cG:#1b2430; --cUp:#d9480f; --cDown:#1c7ed6;
+    --grid:#e6e9ef;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12161c; --card:#1a2029; --ink:#e6ebf2; --muted:#9aa5b5; --line:#2b3440;
+      --accent:#8aa0ff; --warn-bg:#3a2f14; --ok-bg:#16322a; --bad-bg:#3b1f1c; --info-bg:#1f2a4a;
+      --cU:#4cc38a; --cC:#f0b95a; --cD:#ea7a63; --cG:#e6ebf2; --cUp:#ff9a5c; --cDown:#6cb4ff;
+      --grid:#2b3440;
+    }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap{ max-width:1180px; margin:0 auto; padding:20px 16px 56px; }
+  h1{ font-size:1.7rem; margin:0 0 4px; line-height:1.2; }
+  h2{ font-size:1.15rem; margin:0 0 8px; }
+  h3{ font-size:1rem; margin:0 0 4px; }
+  p{ margin:0 0 10px; }
+  a{ color:var(--accent); }
+  .lead{ color:var(--muted); max-width:70ch; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  .small{ font-size:.85rem; color:var(--muted); }
+
+  /* groups */
+  .groups{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0; }
+  .group{ background:var(--card); border:1px solid var(--line); border-top:5px solid var(--c); border-radius:12px; padding:12px 14px; }
+  .group .sym{ font-weight:700; color:var(--c); }
+  .group .now{ margin-top:8px; font-size:.85rem; color:var(--muted); }
+  .group .bar{ height:8px; border-radius:4px; background:var(--grid); overflow:hidden; margin-top:4px; }
+  .group .bar i{ display:block; height:100%; background:var(--c); width:0; transition:width .2s; }
+  .group .pct{ font-weight:700; color:var(--ink); font-size:1.1rem; }
+  .flow{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:.85rem; color:var(--muted); margin:-4px 0 12px; }
+  .flow b{ color:var(--ink); }
+
+  /* layout */
+  .layout{ display:grid; grid-template-columns:380px 1fr; gap:16px; align-items:start; }
+  .controls{ position:sticky; top:8px; max-height:calc(100vh - 16px); overflow:auto; padding:0; }
+  .controls .inner{ padding:4px 16px 16px; }
+  .controls h2{ position:sticky; top:0; background:var(--card); padding:14px 0 6px; margin:0; z-index:1; border-bottom:1px solid var(--line); }
+  fieldset{ border:0; padding:0; margin:14px 0 0; }
+  legend{ font-weight:700; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:0; margin-bottom:6px; }
+  .param{ padding:10px 0; border-bottom:1px dashed var(--line); }
+  .param.off{ opacity:.45; }
+  .param .head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .param .name{ font-weight:600; }
+  .param .name .sym{ font-family:Georgia,"Times New Roman",serif; font-style:italic; color:var(--accent); margin-right:4px; }
+  .param output{ font-variant-numeric:tabular-nums; font-weight:700; }
+  .param input[type=range]{ width:100%; margin:4px 0; accent-color:var(--accent); }
+  .param .what{ font-size:.88rem; margin:0 0 4px; }
+  .ud{ font-size:.82rem; margin:2px 0; padding-left:2px; color:var(--muted); }
+  .ud b{ color:var(--ink); }
+  select,button,input[type=number]{ font:inherit; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+  button{ cursor:pointer; }
+  button:hover{ border-color:var(--accent); }
+  .presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .presets button{ font-size:.85rem; padding:5px 9px; }
+  .seg{ display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button{ border:0; border-radius:0; font-size:.85rem; padding:5px 10px; background:var(--card); }
+  .seg button[aria-pressed=true]{ background:var(--accent); color:#fff; }
+
+  /* verdict */
+  .verdict{ border-radius:12px; padding:14px 16px; margin-bottom:16px; border:1px solid var(--line); }
+  .verdict.ok{ background:var(--ok-bg); } .verdict.warn{ background:var(--warn-bg); }
+  .verdict.bad{ background:var(--bad-bg); } .verdict.info{ background:var(--info-bg); }
+  .verdict h2{ margin-bottom:4px; }
+  .verdict p:last-child{ margin-bottom:0; }
+
+  /* charts */
+  svg.chart{ width:100%; height:auto; display:block; }
+  svg text{ fill:var(--muted); font:11px system-ui,sans-serif; }
+  svg .lbl{ fill:var(--ink); }
+  .legend{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:.82rem; color:var(--muted); margin-top:6px; }
+  .legend span::before{ content:""; display:inline-block; width:14px; height:0; border-top:3px solid var(--c); vertical-align:middle; margin-right:5px; }
+  .legend span.dash::before{ border-top-style:dashed; }
+  .legend span.dot::before{ width:9px; height:9px; border:0; background:var(--c); border-radius:50%; }
+  .charthead{ display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+
+  .nums{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+  .num{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; }
+  .num .v{ font-size:1.25rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .num .k{ font-size:.82rem; color:var(--muted); }
+
+  table{ border-collapse:collapse; width:100%; font-size:.9rem; }
+  th,td{ text-align:left; vertical-align:top; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th{ font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  code,.eq{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.88rem; }
+  .eq{ background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 12px; display:block; white-space:pre-wrap; overflow-x:auto; }
+  details summary{ cursor:pointer; font-weight:600; }
+
+  @media (max-width:900px){
+    .layout{ grid-template-columns:1fr; }
+    .controls{ position:static; max-height:none; }
+    .groups{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>LLM als cognitief virus</h1>
+  <p class="lead">Wat gebeurt er als steeds meer mensen een taalmodel (LLM) gebruiken? Dit model uit
+  <a href="https://arxiv.org/abs/2609.03344" target="_blank" rel="noopener">Solé et al. — <em>Large-Language Models as a Cognitive Virus</em></a>
+  vergelijkt LLM-gebruik met een besmettelijke ziekte: het verspreidt zich via anderen, maar mensen kunnen ook weer terugkeren
+  naar zelf denken. Verschuif de knoppen en zie wanneer het systeem <strong>plotseling kantelt</strong> — en waarom terugdraaien dan moeilijker is dan voorkomen.</p>
+</header>
+
+<section class="groups" aria-label="De drie groepen">
+  <div class="group" style="--c:var(--cU)">
+    <h3>🧠 <span class="sym">U</span> · Ongekoppeld</h3>
+    <p class="small">Denken, lezen en schrijven zelf; gebruiken geen of nauwelijks een LLM. Putten uit boeken, collega's, het internet.</p>
+    <div class="now">Eind van de simulatie: <span class="pct" id="pU">–</span><div class="bar"><i id="bU"></i></div></div>
+  </div>
+  <div class="group" style="--c:var(--cC)">
+    <h3>🤝 <span class="sym">C</span> · Autonome gebruikers</h3>
+    <p class="small">Gebruiken een LLM als hulpmiddel, maar blijven zelf redeneren, verifiëren en hebben andere bronnen. De LLM is <em>steiger</em>.</p>
+    <div class="now">Eind van de simulatie: <span class="pct" id="pC">–</span><div class="bar"><i id="bC"></i></div></div>
+  </div>
+  <div class="group" style="--c:var(--cD)">
+    <h3>🔗 <span class="sym">D</span> · Afhankelijk</h3>
+    <p class="small">Laten cognitieve taken structureel door het model doen; andere routes zijn weggevallen. De LLM is <em>vervanging</em>.</p>
+    <div class="now">Eind van de simulatie: <span class="pct" id="pD">–</span><div class="bar"><i id="bD"></i></div></div>
+  </div>
+</section>
+<p class="flow">Mensen stromen zo tussen de groepen:
+  <b>U → C</b> door <i>verspreidingsdruk λ</i> ·
+  <b>C → U</b> door <i>terugkeer ρ</i> (+ versterking κ) ·
+  <b>C → D</b> door <i>doorglijden μ</i> ·
+  <b>D → C</b> door <i>herstel σ</i></p>
+
+<div class="layout">
+
+  <aside class="card controls" aria-label="Parameters">
+    <div class="inner">
+    <h2>Parameters</h2>
+    <div class="presets" id="presets"></div>
+    <div id="paramHost"></div>
+    <p class="small" style="margin-top:12px"><button id="copyLink" type="button">🔗 Kopieer link met deze instellingen</button> <span id="copied" class="small"></span></p>
+    </div>
+  </aside>
+
+  <main>
+    <div id="verdict" class="verdict info" aria-live="polite"></div>
+
+    <section class="card">
+      <div class="charthead">
+        <h2 style="margin:0">1 · Verloop in de tijd</h2>
+      </div>
+      <p class="small" id="timeNote"></p>
+      <svg id="timeChart" class="chart" viewBox="0 0 640 300" role="img" aria-label="Verloop van de groepen in de tijd"></svg>
+      <div class="legend" id="timeLegend"></div>
+    </section>
+
+    <section class="card">
+      <div class="charthead">
+        <h2 style="margin:0">2 · Kantelgrafiek: waar eindigt het systeem bij een gegeven λ?</h2>
+        <div class="seg" id="viewSeg">
+          <button type="button" data-v="U">Zelf denkenden (U*)</button>
+          <button type="button" data-v="G">Competentie ⟨Γ⟩*</button>
+          <button type="button" data-v="groups">Alle groepen</button>
+        </div>
+      </div>
+      <p class="small">Elke lijn is een mogelijke <em>eindtoestand</em>. Ononderbroken = stabiel (het systeem blijft daar), gestippeld = onstabiel (een grens tussen twee gebieden: de bal rolt weg).
+      In het grijze gebied bestaan <strong>twee</strong> stabiele toestanden naast elkaar: welke je krijgt hangt af van je voorgeschiedenis.</p>
+      <svg id="bifChart" class="chart" viewBox="0 0 640 320" role="img" aria-label="Bifurcatiediagram"></svg>
+      <div class="legend" id="bifLegend"></div>
+    </section>
+
+    <section class="card">
+      <h2>3 · Kerngetallen bij deze instellingen</h2>
+      <div class="nums" id="nums"></div>
+    </section>
+  </main>
+</div>
+
+<section class="card" style="margin-top:16px">
+  <h2>Welke knop is welke ingreep? (“cognitieve immunisatie”)</h2>
+  <p class="small">Naar Tabel I uit het artikel. Twee soorten knoppen: die de <strong>kantelpunten</strong> bepalen (λ, ρ, κ) en die bepalen <strong>hoeveel afhankelijkheid</strong> er ontstaat (μ, σ).</p>
+  <div style="overflow-x:auto">
+  <table>
+    <tr><th>Ingreep</th><th>Knop</th><th>Effect</th></tr>
+    <tr><td>Verspreiding van vervangend gebruik beperken</td><td>λ ↓</td><td>Voorkomt kantelen zolang λ &lt; λ<sub>TC</sub>. Na het kantelen moet λ onder λ<sub>SN</sub> om te herstellen.</td></tr>
+    <tr><td>Alternatieve routes naar zelf werken behouden</td><td>ρ ↑</td><td>Verhoogt beide drempels en verkleint hysterese. Bij ρ ≥ κ is de overgang geleidelijk.</td></tr>
+    <tr><td>Collectieve autonomie versterken (normen, onderwijs)</td><td>κ ↑</td><td>Maakt binnendringen moeilijker, maar verbreedt (bij κ &gt; ρ) het hysterese-gebied.</td></tr>
+    <tr><td>Herstel boven lock-in stellen</td><td>ρ/κ ↑</td><td>Richting ρ = κ: de overgang wordt continu.</td></tr>
+    <tr><td>Doorglijden naar afhankelijkheid voorkomen (verificatie, oefening zonder AI)</td><td>μ ↓</td><td>Verschuift de kantelpunten niet, maar verlaagt D en verhoogt competentie.</td></tr>
+    <tr><td>Herstel van afhankelijkheid bevorderen</td><td>σ ↑</td><td>Verschuift de kantelpunten niet, maar verlaagt D en verhoogt competentie.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Het model in het kort</h2>
+  <p>Met <code>U + C + D = 1</code> (aandelen van de populatie):</p>
+  <span class="eq">dU/dt = −λ·U·C + ρ·C + κ·U²·C
+dC/dt =  λ·U·C − (μ+ρ)·C + σ·D − κ·U²·C
+dD/dt =  μ·C − σ·D</span>
+  <p style="margin-top:10px">De term <code>λ·U·C</code> is “besmetting” (ongekoppelden komen in contact met gebruikers). De term <code>κ·U²·C</code> is een <em>Allee-effect</em>: hoe meer mensen zelf blijven denken, hoe aantrekkelijker en normaler dat is — dat geeft terugkeer naar U een duwtje, juist als U groot is.
+  Daardoor ontstaat een kantelpunt (bifurcatie): λ<sub>TC</sub> = ρ + κ en, als κ &gt; ρ, ook λ<sub>SN</sub> = 2·√(κρ). Tussen die twee ligt het bistabiele gebied.</p>
+  <p>Competentie: ⟨Γ⟩ = Γ<sub>u</sub>·U + Γ<sub>c</sub>·C + Γ<sub>d</sub>·D, met per groep een <em>illustratieve</em> competentie zonder AI-hulp (standaard 1 / 0,5 / 0,1).</p>
+  <p class="small"><strong>Let op:</strong> dit is een minimaal, kwalitatief model. De parameterwaarden zijn niet gekalibreerd op echte data en de Γ-waarden zijn een rekenvoorbeeld van de auteurs, geen meting. Een LLM leidt niet vanzelf tot afhankelijkheid: gebruik als steiger kan competentie juist behouden. Het model beschrijft de <em>verspreiding van koppelingsvormen</em>, niet de LLM-technologie zelf. Bron: Solé, Ruffini, Castaldo e.a. (2026), arXiv:2609.03344.</p>
+</section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ---------- parameters ---------- */
+const DEFAULTS = {lambda:.45, rho:.10, kappa:.40, mu:.20, sigma:.10, gu:1, gc:.5, gd:.1, u0:.70, T:200};
+const P = {...DEFAULTS, mode:"const", view:"U"};
+
+const DEFS = [
+ {group:"Verspreiding en herstel", items:[
+  {k:"lambda", sym:"λ", name:"Verspreidingsdruk", min:0, max:1.2, step:.01,
+   what:"Hoe sterk collega's, school, werkgever en platforms ongekoppelde mensen richting LLM-gebruik duwen (U → C).",
+   up:"LLM-gebruik verspreidt zich sneller. Voorbij λ<sub>TC</sub> = ρ+κ kantelt de populatie naar gekoppeld gebruik.",
+   down:"Minder druk. Onder λ<sub>SN</sub> is zelf denken de enige stabiele toestand — maar <em>na</em> het kantelen moet je tot onder λ<sub>SN</sub> terug, niet maar net onder λ<sub>TC</sub>."},
+  {k:"rho", sym:"ρ", name:"Terugkeer naar zelf denken", min:0, max:.6, step:.01,
+   what:"Hoe snel regelmatige gebruikers uit zichzelf weer zonder LLM gaan werken (C → U), bv. omdat ze het zelf prettiger vinden of er onbeschermde taken zijn.",
+   up:"Beide kantelpunten stijgen en het bistabiele gebied krimpt. Bij ρ ≥ κ verdwijnt de hysterese helemaal: de overgang wordt geleidelijk en omkeerbaar.",
+   down:"Wie eenmaal een LLM gebruikt, blijft dat doen. Kantelen gaat eerder en terugkeren is lastiger."},
+  {k:"kappa", sym:"κ", name:"Collectieve versterking van zelf denken", min:0, max:1, step:.01,
+   what:"Hoe sterk een omgeving waarin veel mensen zelf blijven denken (scholen, werkplekken, normen) die autonomie beloont en in stand houdt. Werkt alleen als U groot is.",
+   up:"Binnendringen wordt moeilijker (λ<sub>TC</sub> stijgt), zolang de meeste mensen nog zelf denken. Maar bij κ &gt; ρ wordt het bistabiele gebied breder: is het eenmaal gekanteld, dan is terugdraaien <em>moeilijker</em>.",
+   down:"Zelf denken krijgt weinig sociale steun. Bij κ ≤ ρ is er geen kantelpunt met sprong, maar een vloeiende toename."},
+ ]},
+ {group:"Van gebruiker naar afhankelijk", items:[
+  {k:"mu", sym:"μ", name:"Doorglijden naar afhankelijkheid", min:0.01, max:1, step:.01,
+   what:"Hoe snel regelmatige gebruikers (C) structureel taken gaan overlaten aan het model, zodat andere vaardigheden wegvallen (C → D).",
+   up:"Een groter deel van de gekoppelde gebruikers is afhankelijk (D). Het kantelpunt verschuift niet, maar de gemiddelde competentie zakt dieper.",
+   down:"Gebruikers blijven vaker autonoom (C): even veel LLM-gebruik, minder verlies aan eigen competentie."},
+  {k:"sigma", sym:"σ", name:"Herstel van afhankelijkheid", min:0.01, max:1, step:.01,
+   what:"Hoe snel afhankelijke gebruikers weer zelfstandig worden door training, verificatie of bewuste ‘cognitieve wrijving’ (D → C).",
+   up:"Minder afhankelijken (D), meer competentie. De kantelpunten blijven gelijk.",
+   down:"Afhankelijkheid blijft hangen; de gekoppelde populatie bestaat vooral uit D."},
+ ]},
+ {group:"Competentie zonder AI-hulp (illustratief)", items:[
+  {k:"gu", sym:"Γu", name:"Ongekoppeld (U)", min:0, max:1, step:.01,
+   what:"Wat iemand in deze groep kan als je alle hulpmiddelen weghaalt (1 = volledige eigen competentie).",
+   up:"Zelf denkenden tellen zwaarder mee in de gemiddelde competentie.", down:"Zelf denken wordt als minder waardevol gewaardeerd in de gemiddelde score."},
+  {k:"gc", sym:"Γc", name:"Autonome gebruikers (C)", min:0, max:1, step:.01,
+   what:"Competentie van regelmatige gebruikers die zelf blijven nadenken. Hoog = LLM als steiger; laag = LLM neemt toch al veel over.",
+   up:"Gekoppeld gebruik kost weinig competentie (steiger).", down:"Zelfs autonome gebruikers verliezen veel competentie."},
+  {k:"gd", sym:"Γd", name:"Afhankelijk (D)", min:0, max:1, step:.01,
+   what:"Competentie van afhankelijke gebruikers wanneer het model wegvalt.",
+   up:"Afhankelijkheid kost weinig competentie.", down:"Afhankelijkheid betekent bijna volledig verlies van eigen vermogen."},
+ ]},
+ {group:"Startsituatie en simulatie", items:[
+  {k:"u0", sym:"U₀", name:"Begin: aandeel dat zelf denkt", min:0, max:1, step:.01,
+   what:"Het aandeel ongekoppelden aan de start; de rest begint als autonome gebruiker (C). Niemand begint afhankelijk.",
+   up:"Weinig LLM-gebruik bij de start; in het bistabiele gebied blijft het systeem dan eerder autonoom.",
+   down:"Veel LLM-gebruik bij de start; in het bistabiele gebied glijdt het systeem dan eerder naar gekoppeld."},
+  {k:"T", sym:"T", name:"Simulatieduur", min:50, max:2000, step:10, int:true,
+   what:"Aantal tijdseenheden (de snelheden zijn per tijdseenheid). Dichtbij een kantelpunt duurt het kantelen lang: verhoog T als er niets lijkt te gebeuren.",
+   up:"Je ziet meer van het lange-termijngedrag.", down:"Je ziet alleen het begin."},
+ ]},
+];
+
+const PRESETS = [
+ {n:"Voorbeeld uit het artikel", p:{lambda:.45,rho:.1,kappa:.4,mu:.2,sigma:.1,gu:1,gc:.5,gd:.1,mode:"const",T:200}},
+ {n:"Hysterese-demo (λ omhoog en weer omlaag)", p:{lambda:.45,rho:.1,kappa:.4,mu:.2,sigma:.1,mode:"ramp",T:1500,u0:.98}},
+ {n:"Geleidelijk (κ < ρ)", p:{lambda:.5,rho:.3,kappa:.1,mu:.2,sigma:.1,mode:"const",T:200}},
+ {n:"Veel afhankelijkheid", p:{lambda:.6,rho:.1,kappa:.4,mu:.6,sigma:.05,mode:"const",T:200}},
+ {n:"Met herstelprogramma", p:{lambda:.6,rho:.1,kappa:.4,mu:.05,sigma:.5,mode:"const",T:200}},
+];
+
+/* ---------- model ---------- */
+function derived(p){
+  const lamTC = p.rho + p.kappa, bist = p.kappa > p.rho;
+  const lamSN = 2*Math.sqrt(p.kappa*p.rho);
+  const s = p.mu + p.sigma;
+  const fC = s>0 ? p.sigma/s : .5, fD = s>0 ? p.mu/s : .5;       // split of the coupled population
+  const g = fC*p.gc + fD*p.gd;                                     // eq. 13, general Γu
+  const gam = U => p.gu*U + g*(1-U);                               // ⟨Γ⟩* as function of U*
+  return {lamTC, lamSN, bist, fC, fD, g, gam};
+}
+// equilibrium roots of f(U)=ρ−λU+κU² inside (0,1]
+function roots(lam,p){
+  if (p.kappa < 1e-9){ const u = lam>0 ? p.rho/lam : Infinity; return {lo: u<=1?u:null, hi:null}; }
+  const disc = lam*lam - 4*p.kappa*p.rho;
+  if (disc < 0) return {lo:null, hi:null};
+  const s = Math.sqrt(disc), a=(lam-s)/(2*p.kappa), b=(lam+s)/(2*p.kappa);
+  const ok = u => (u>=0 && u<=1+1e-9) ? Math.min(u,1) : null;
+  return {lo:ok(a), hi:ok(b)};   // lo = stable, hi = unstable
+}
+function rampHi(p){ return Math.min(1.2, Math.max(.3, 1.3*(p.rho+p.kappa))); }
+function lamAt(p,t){
+  if (p.mode!=="ramp") return p.lambda;
+  const hi=rampHi(p), h=p.T/2;
+  return t<h ? hi*t/h : hi*(1-(t-h)/h);
+}
+function simulate(p){
+  const dt=.05, n=Math.round(p.T/dt), every=Math.max(1,Math.floor(n/700));
+  const rhs=(l,U,C,D)=>[ C*(-l*U+p.rho+p.kappa*U*U),
+                         l*U*C-(p.mu+p.rho)*C+p.sigma*D-p.kappa*U*U*C,
+                         p.mu*C-p.sigma*D ];
+  let U=p.u0, C=1-p.u0, D=0;
+  const out=[];
+  for (let i=0;i<=n;i++){
+    const t=i*dt;
+    if (i%every===0 || i===n) out.push({t, lam:lamAt(p,t), U, C, D});
+    const l1=lamAt(p,t), l2=lamAt(p,t+dt/2), l3=lamAt(p,t+dt);
+    const k1=rhs(l1,U,C,D);
+    const k2=rhs(l2,U+dt/2*k1[0],C+dt/2*k1[1],D+dt/2*k1[2]);
+    const k3=rhs(l2,U+dt/2*k2[0],C+dt/2*k2[1],D+dt/2*k2[2]);
+    const k4=rhs(l3,U+dt*k3[0],C+dt*k3[1],D+dt*k3[2]);
+    U+=dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);
+    C+=dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    D+=dt/6*(k1[2]+2*k2[2]+2*k3[2]+k4[2]);
+    U=Math.min(1,Math.max(0,U)); C=Math.max(p.mode==="ramp"?.005:0,C); D=Math.max(0,D);
+    const s=U+C+D; U/=s; C/=s; D/=s;
+  }
+  return out;
+}
+
+/* ---------- svg plotting ---------- */
+const NS = 12;
+function niceTicks(a,b,n){
+  const raw=(b-a)/n, mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>s>=raw)||10*mag;
+  const t=[]; for (let v=Math.ceil(a/step-1e-9)*step; v<=b+1e-9; v+=step) t.push(+v.toFixed(10));
+  return t;
+}
+function mkPlot(W,H,xd,yd,opt={}){
+  const m={l:44,r:opt.r||14,t:12,b:40};
+  const sx=x=>m.l+(x-xd[0])/(xd[1]-xd[0])*(W-m.l-m.r);
+  const sy=y=>H-m.b-(y-yd[0])/(yd[1]-yd[0])*(H-m.t-m.b);
+  const f=v=>v.toFixed(1);
+  let s="";
+  for (const y of niceTicks(yd[0],yd[1],5)) s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${f(sy(y))}" y2="${f(sy(y))}" stroke="var(--grid)"/><text x="${m.l-6}" y="${f(sy(y)+4)}" text-anchor="end">${+y.toFixed(2)}</text>`;
+  for (const x of niceTicks(xd[0],xd[1],7)) s+=`<line x1="${f(sx(x))}" x2="${f(sx(x))}" y1="${H-m.b}" y2="${H-m.b+4}" stroke="var(--muted)"/><text x="${f(sx(x))}" y="${H-m.b+16}" text-anchor="middle">${+x.toFixed(3)}</text>`;
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}" stroke="var(--muted)"/><line x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${H-m.b}" stroke="var(--muted)"/>`;
+  s+=`<text x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle">${opt.xl||""}</text>`;
+  s+=`<text transform="translate(12 ${(m.t+H-m.b)/2}) rotate(-90)" text-anchor="middle">${opt.yl||""}</text>`;
+  return {m,sx,sy,f,s,W,H};
+}
+const path=(pl,pts,col,o={})=>{
+  let d="",pen=false;
+  for (const q of pts){ if(!q){pen=false;continue;} d+=(pen?"L":"M")+pl.f(pl.sx(q[0]))+" "+pl.f(pl.sy(q[1]))+" "; pen=true; }
+  return d?`<path d="${d}" fill="none" style="stroke:${col}" stroke-width="${o.w||2.4}" ${o.dash?`stroke-dasharray="${o.dash}"`:""} ${o.op?`opacity="${o.op}"`:""} stroke-linejoin="round"/>`:"";
+};
+const legend=(el,items)=>{ el.innerHTML=items.map(([c,t,cls])=>`<span class="${cls||""}" style="--c:${c}">${t}</span>`).join(""); };
+
+/* ---------- chart 1: time ---------- */
+function drawTime(sim){
+  const W=640,H=300, ramp=P.mode==="ramp", hi=rampHi(P);
+  const pl=mkPlot(W,H,[0,P.T],[0,1],{xl:"tijd",yl:"aandeel van de populatie",r:ramp?40:14});
+  let s=pl.s;
+  const pts=k=>sim.map(r=>[r.t,r[k]]);
+  const poly=(top,bot,col)=>{
+    const a=top.map(q=>pl.f(pl.sx(q[0]))+","+pl.f(pl.sy(q[1])));
+    const b=bot.slice().reverse().map(q=>pl.f(pl.sx(q[0]))+","+pl.f(pl.sy(q[1])));
+    return `<polygon points="${a.concat(b).join(" ")}" style="fill:${col}" opacity=".78"/>`;
+  };
+  const zero=sim.map(r=>[r.t,0]), cU=sim.map(r=>[r.t,r.U]), cUC=sim.map(r=>[r.t,r.U+r.C]), one=sim.map(r=>[r.t,1]);
+  s+=poly(cU,zero,"var(--cU)")+poly(cUC,cU,"var(--cC)")+poly(one,cUC,"var(--cD)");
+  const d=derived(P);
+  s+=path(pl,sim.map(r=>[r.t,d.gam(r.U)]),"var(--cG)",{dash:"6 4",w:2});
+  if (ramp){
+    s+=path(pl,sim.map(r=>[r.t,r.lam/hi]),"var(--ink)",{dash:"1 3",w:2});
+    for (const y of [0,.5,1]) s+=`<text x="${W-pl.m.r+4}" y="${pl.f(pl.sy(y)+4)}">${(y*hi).toFixed(2)}</text>`;
+    s+=`<text x="${W-4}" y="${pl.m.t+2}" text-anchor="end" class="lbl">λ</text>`;
+  }
+  document.getElementById("timeChart").innerHTML=s;
+  legend(document.getElementById("timeLegend"),[
+    ["var(--cU)","U · zelf denkend"],["var(--cC)","C · autonome gebruikers"],["var(--cD)","D · afhankelijk"],
+    ["var(--cG)","gemiddelde competentie ⟨Γ⟩","dash"],...(ramp?[["var(--ink)","λ(t) (rechteras)","dash"]]:[])]);
+  document.getElementById("timeNote").innerHTML = ramp
+    ? "<strong>Hysterese-demo:</strong> λ wordt eerst langzaam verhoogd en daarna weer verlaagd (gestippelde lijn, rechteras). Let op: het kantelen gebeurt pas ná λ<sub>TC</sub> en het herstel pas <em>ver onder</em> dat punt. Om opnieuw te kunnen kantelen blijft er in deze demo steeds een minimaal zaadje (0,5%) gebruikers aanwezig. De λ-slider en de startwaarde doen in deze modus niet mee."
+    : "De drie kleurvlakken vormen samen 100% van de populatie. De gestippelde lijn is de gemiddelde competentie zonder AI-hulp.";
+}
+
+/* ---------- chart 2: bifurcation ---------- */
+function drawBif(sim){
+  const W=640,H=320,d=derived(P);
+  const lamMax=Math.min(1.2,Math.max(.7,1.35*d.lamTC)), N=360, view=P.view;
+  const yl = view==="G"?"gemiddelde competentie ⟨Γ⟩*":view==="U"?"aandeel zelf denkend U*":"aandeel van de populatie";
+  const pl=mkPlot(W,H,[0,lamMax],[view==="G"?Math.max(0,Math.min(P.gu,P.gc,P.gd)-.05):0, view==="G"?Math.max(P.gu,P.gc,P.gd,.1)+.05:1.02],{xl:"verspreidingsdruk λ",yl});
+  const val=U=>view==="G"?d.gam(U):U;
+  let s=pl.s;
+  // bistable band
+  if (d.bist && d.lamSN<d.lamTC){
+    const x1=pl.sx(d.lamSN),x2=pl.sx(Math.min(d.lamTC,lamMax));
+    s+=`<rect x="${pl.f(x1)}" y="${pl.m.t}" width="${pl.f(x2-x1)}" height="${H-pl.m.t-pl.m.b}" fill="var(--muted)" opacity=".16"/>`;
+    s+=`<text x="${pl.f((x1+x2)/2)}" y="${pl.m.t+32}" text-anchor="middle" class="lbl">bistabiel</text>`;
+  }
+  const mk=(x,t)=>`<line x1="${pl.f(pl.sx(x))}" x2="${pl.f(pl.sx(x))}" y1="${pl.m.t}" y2="${H-pl.m.b}" stroke="var(--muted)" stroke-dasharray="2 3"/><text x="${pl.f(pl.sx(x))}" y="${H-pl.m.b-6}" text-anchor="middle" class="lbl">${t}</text>`;
+  if (d.lamTC<=lamMax) s+=mk(d.lamTC,"λ_TC");
+  if (d.bist && d.lamSN<=lamMax) s+=mk(d.lamSN,"λ_SN");
+
+  const A=[],Ab=[],LO=[],HI=[];
+  for (let i=0;i<=N;i++){
+    const l=lamMax*i/N, r=roots(l,P);
+    (l<=d.lamTC?A:Ab).push([l,1]);
+    if (l===d.lamTC||i===0){}
+    LO.push(r.lo==null?null:[l,r.lo]); HI.push(r.hi==null?null:[l,r.hi]);
+  }
+  if (Ab.length&&A.length) Ab.unshift(A[A.length-1]);
+  const f2=(arr,fn)=>arr.map(q=>q&&[q[0],fn(q[1])]);
+  if (view==="groups"){
+    s+=path(pl,A,"var(--muted)",{w:1.6})+path(pl,Ab,"var(--muted)",{w:1.6,dash:"6 4"});
+    s+=path(pl,LO,"var(--cU)");
+    s+=path(pl,f2(LO,u=>d.fC*(1-u)),"var(--cC)");
+    s+=path(pl,f2(LO,u=>d.fD*(1-u)),"var(--cD)");
+    legend(document.getElementById("bifLegend"),[["var(--cU)","U* (gekoppelde toestand)"],["var(--cC)","C*"],["var(--cD)","D*"],["var(--muted)","volledig autonome toestand (U=1)"]]);
+  } else {
+    s+=path(pl,f2(A,val),"var(--cG)")+path(pl,f2(Ab,val),"var(--cG)",{dash:"6 4"});
+    s+=path(pl,f2(LO,val),"var(--cG)")+path(pl,f2(HI,val),"var(--cG)",{dash:"6 4"});
+    if (sim && P.mode==="ramp"){
+      const h=sim.findIndex(r=>r.t>=P.T/2);
+      s+=path(pl,sim.slice(0,h+1).map(r=>[r.lam,view==="G"?d.gam(r.U):r.U]),"var(--cUp)",{w:3,op:.9});
+      s+=path(pl,sim.slice(h).map(r=>[r.lam,view==="G"?d.gam(r.U):r.U]),"var(--cDown)",{w:3,op:.9});
+    }
+    // markers at current λ
+    const l=P.lambda, r=roots(l,P);
+    s+=`<line x1="${pl.f(pl.sx(l))}" x2="${pl.f(pl.sx(l))}" y1="${pl.m.t}" y2="${H-pl.m.b}" style="stroke:var(--accent)" stroke-width="1.5"/>`;
+    if (P.mode!=="ramp"){
+      const dot=(u,fill)=>`<circle cx="${pl.f(pl.sx(l))}" cy="${pl.f(pl.sy(val(u)))}" r="5.5" style="stroke:var(--accent);fill:${fill}" stroke-width="2"/>`;
+      if (l<d.lamTC-1e-9) s+=dot(1,"var(--accent)");
+      if (r.lo!=null && r.lo<1-1e-9) s+=dot(r.lo,"var(--accent)");
+      if (r.hi!=null && r.hi<1-1e-9) s+=dot(r.hi,"var(--card)");
+    }
+    legend(document.getElementById("bifLegend"),[["var(--cG)","stabiele toestand"],["var(--cG)","onstabiele toestand (grens)","dash"],["var(--accent)","jouw λ: ● stabiel, ○ onstabiel","dot"],
+      ...(P.mode==="ramp"?[["var(--cUp)","simulatie: λ omhoog"],["var(--cDown)","simulatie: λ omlaag"]]:[])]);
+  }
+  document.getElementById("bifChart").innerHTML=s;
+}
+
+/* ---------- verdict + numbers ---------- */
+const fx=(v,n=2)=>v==null||!isFinite(v)?"–":(+v).toFixed(n);
+function render(){
+  const d=derived(P), sim=simulate(P), end=sim[sim.length-1];
+  // group cards
+  for (const k of ["U","C","D"]){ document.getElementById("p"+k).textContent=(end[k]*100).toFixed(0)+"%"; document.getElementById("b"+k).style.width=(end[k]*100)+"%"; }
+  drawTime(sim); drawBif(sim);
+
+  // verdict
+  const l=P.lambda, r=roots(l,P);
+  let cls,h,t;
+  const regime = l>=d.lamTC-1e-9 ? "coupled" : (d.bist && l>=d.lamSN) ? "bistable" : "auto";
+  if (P.mode==="ramp"){
+    cls="info"; h="Hysterese-demo actief";
+    t=d.bist
+      ? `λ loopt van 0 tot ${rampHi(P).toFixed(2)} en weer terug. Omhoog kantelt het systeem pas rond λ<sub>TC</sub> = ${fx(d.lamTC)}; omlaag herstelt het pas rond λ<sub>SN</sub> = ${fx(d.lamSN)}. Dat verschil (${fx(d.lamTC-d.lamSN)}) is de <em>hysterese</em>.`
+      : `Hier is κ ≤ ρ, dus er is geen hysterese: de overgang rond λ<sub>TC</sub> = ${fx(d.lamTC)} is vloeiend en op dezelfde plek omkeerbaar. Zet κ boven ρ om hysterese te zien.`;
+  } else if (regime==="auto"){
+    cls="ok"; h="Zelf denken blijft de norm";
+    t=`Bij λ = ${fx(l)} is de enige stabiele toestand die waarin (vrijwel) iedereen zelf denkt. ${d.bist?`Pas als λ boven λ<sub>SN</sub> = ${fx(d.lamSN)} komt, ontstaat er daarnaast een gekoppelde toestand; kantelen kan pas boven λ<sub>TC</sub> = ${fx(d.lamTC)}.`:`Kantelen gebeurt pas boven λ<sub>TC</sub> = ρ+κ = ${fx(d.lamTC)}.`}`;
+  } else if (regime==="bistable"){
+    const hiU=r.hi, below = hiU!=null && P.u0<hiU;
+    cls="warn"; h="Bistabiel: twee eindtoestanden mogelijk";
+    t=`Zowel een autonome als een gekoppelde toestand zijn stabiel (λ<sub>SN</sub> = ${fx(d.lamSN)} &lt; λ = ${fx(l)} &lt; λ<sub>TC</sub> = ${fx(d.lamTC)}). De uitkomst hangt af van de voorgeschiedenis. `
+      +(hiU!=null?`De kantelgrens ligt bij U = ${fx(hiU)}: begin je daarboven (jouw start: ${fx(P.u0)}), dan keert het systeem terug naar zelf denken; begin je eronder, dan glijdt het door naar gekoppeld gebruik. <strong>${below?"Jouw start ligt eronder → het systeem kantelt.":"Jouw start ligt erboven → het systeem herstelt."}</strong>`:"");
+  } else {
+    cls="bad"; h=d.bist?"Gekanteld: gekoppeld gebruik is dominant":"Gekoppeld gebruik is dominant";
+    t=`Boven λ<sub>TC</sub> = ${fx(d.lamTC)} is de volledig autonome toestand onstabiel. Op termijn blijft ${fx((r.lo??1)*100,0)}% zelf denken. `
+      +(d.bist?`Om dit terug te draaien moet λ niet alleen onder λ<sub>TC</sub>, maar onder λ<sub>SN</sub> = ${fx(d.lamSN)}.`:`Omdat κ ≤ ρ is de overgang vloeiend: verlaag λ en het systeem keert op dezelfde plek terug.`);
+  }
+  const v=document.getElementById("verdict"); v.className="verdict "+cls; v.innerHTML=`<h2>${h}</h2><p>${t}</p>`;
+
+  // numbers
+  const coupled = r.lo!=null && r.lo<1-1e-9 ? r.lo : null;
+  const gl=P.gu-d.g;
+  const items=[
+   ["λ_TC = ρ + κ", fx(d.lamTC), "Vanaf hier is volledig autonoom niet meer stabiel."],
+   ["λ_SN = 2√(κρ)", d.bist?fx(d.lamSN):"n.v.t.", d.bist?"Vanaf hier bestaat een gekoppelde toestand; eronder is herstel volledig.":"Alleen als κ > ρ."],
+   ["Hysterese-breedte", d.bist?fx(d.lamTC-d.lamSN):"0", "(√κ − √ρ)² — hoever λ terug moet na kantelen."],
+   ["Gekoppelde toestand U* / C* / D*", coupled==null?"–":`${fx(coupled)} / ${fx(d.fC*(1-coupled))} / ${fx(d.fD*(1-coupled))}`, coupled==null?"Bestaat niet bij deze λ.":"Aandelen in de stabiele gekoppelde toestand."],
+   ["Competentie autonoom → gekoppeld", coupled==null?"–":`${fx(P.gu)} → ${fx(d.gam(coupled))}`, "Gemiddelde ⟨Γ⟩ in beide toestanden bij jouw λ."],
+   ["Competentieverlies bij kantelen", d.bist?fx(gl*(1-P.rho/P.kappa)):"0", d.bist?"(Γu − g)(1 − ρ/κ): de sprong omlaag op λ_TC.":"Geen sprong: overgang is continu."],
+   ["Competentiewinst bij herstel", d.bist?fx(gl*(1-Math.sqrt(P.rho/P.kappa))):"0", d.bist?"(Γu − g)(1 − √(ρ/κ)): de sprong omhoog op λ_SN.":"Geen sprong."],
+   ["Verhouding D : (C+D)", fx(d.fD), "μ/(μ+σ) — wordt alleen door μ en σ bepaald, niet door λ, ρ of κ."],
+  ];
+  document.getElementById("nums").innerHTML=items.map(([k,v,n])=>`<div class="num"><div class="k">${k}</div><div class="v">${v}</div><div class="k">${n}</div></div>`).join("");
+
+  document.querySelectorAll("#viewSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===P.view));
+  const lamRow=document.getElementById("row-lambda"); if(lamRow) lamRow.classList.toggle("off",P.mode==="ramp");
+  saveHash();
+}
+
+/* ---------- controls ---------- */
+function buildControls(){
+  const host=document.getElementById("paramHost");
+  host.innerHTML=`<fieldset><legend>Tijdverloop</legend><div class="seg" id="modeSeg">
+    <button type="button" data-m="const">Vaste λ</button><button type="button" data-m="ramp">Hysterese-demo: λ op en neer</button></div></fieldset>`
+   + DEFS.map(g=>`<fieldset><legend>${g.group}</legend>`+g.items.map(it=>`
+    <div class="param" id="row-${it.k}">
+      <div class="head"><label class="name" for="in-${it.k}"><span class="sym">${it.sym}</span>${it.name}</label><output id="out-${it.k}"></output></div>
+      <input type="range" id="in-${it.k}" min="${it.min}" max="${it.max}" step="${it.step}">
+      <p class="what">${it.what}</p>
+      <p class="ud">▲ <b>Hoger:</b> ${it.up}</p>
+      <p class="ud">▼ <b>Lager:</b> ${it.down}</p>
+    </div>`).join("")+`</fieldset>`).join("");
+  for (const g of DEFS) for (const it of g.items){
+    const el=document.getElementById("in-"+it.k);
+    el.addEventListener("input",()=>{ P[it.k]=+el.value; syncOut(); render(); });
+  }
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.addEventListener("click",()=>{
+    P.mode=b.dataset.m; if (P.mode==="ramp"&&P.T<800) P.T=1500; if(P.mode==="const"&&P.T>800) P.T=200; syncControls(); render(); }));
+  document.getElementById("presets").innerHTML=PRESETS.map((p,i)=>`<button type="button" data-i="${i}">${p.n}</button>`).join("");
+  document.querySelectorAll("#presets button").forEach(b=>b.addEventListener("click",()=>{ Object.assign(P,DEFAULTS,PRESETS[b.dataset.i].p); syncControls(); render(); }));
+  document.querySelectorAll("#viewSeg button").forEach(b=>b.addEventListener("click",()=>{ P.view=b.dataset.v; render(); }));
+  document.getElementById("copyLink").addEventListener("click",async()=>{
+    try{ await navigator.clipboard.writeText(location.href); document.getElementById("copied").textContent="Gekopieerd ✓"; }
+    catch{ document.getElementById("copied").textContent="Kopieer de URL uit de adresbalk."; }
+    setTimeout(()=>document.getElementById("copied").textContent="",2500);
+  });
+}
+function syncOut(){ for (const g of DEFS) for (const it of g.items) document.getElementById("out-"+it.k).textContent = it.int? P[it.k] : (+P[it.k]).toFixed(2); }
+function syncControls(){
+  for (const g of DEFS) for (const it of g.items) document.getElementById("in-"+it.k).value=P[it.k];
+  document.querySelectorAll("#modeSeg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===P.mode));
+  syncOut();
+}
+
+/* ---------- state in the URL ---------- */
+function saveHash(){
+  const q=new URLSearchParams();
+  for (const k in P) if (P[k]!==({...DEFAULTS,mode:"const",view:"U"})[k]) q.set(k,P[k]);
+  try{ history.replaceState(null,"",q.toString()?"#"+q:location.pathname+location.search); }catch{}
+}
+function loadHash(){
+  const q=new URLSearchParams(location.hash.slice(1));
+  for (const [k,v] of q){
+    if (k==="mode"&&(v==="const"||v==="ramp")) P.mode=v;
+    else if (k==="view"&&["U","G","groups"].includes(v)) P.view=v;
+    else if (k in DEFAULTS && isFinite(+v)) P[k]=+v;
+  }
+}
+
+loadHash(); buildControls(); syncControls(); render();
+</script>
+</body>
+</html>
