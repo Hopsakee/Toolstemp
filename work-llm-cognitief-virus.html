@@ -218,7 +218,7 @@ dD/dt =  μ·C − σ·D</span>
 "use strict";
 
 /* ---------- parameters ---------- */
-const DEFAULTS = {lambda:.45, rho:.10, kappa:.40, mu:.20, sigma:.10, gu:1, gc:.5, gd:.1, u0:.70, T:200};
+const DEFAULTS = {lambda:.45, rho:.10, kappa:.40, mu:.20, sigma:.10, gu:1, gc:.5, gd:.1, u0:.70, T:50};
 const P = {...DEFAULTS, mode:"const", view:"U"};
 
 const DEFS = [
@@ -262,18 +262,18 @@ const DEFS = [
    what:"Het aandeel ongekoppelden aan de start; de rest begint als autonome gebruiker (C). Niemand begint afhankelijk.",
    up:"Weinig LLM-gebruik bij de start; in het bistabiele gebied blijft het systeem dan eerder autonoom.",
    down:"Veel LLM-gebruik bij de start; in het bistabiele gebied glijdt het systeem dan eerder naar gekoppeld."},
-  {k:"T", sym:"T", name:"Simulatieduur", min:50, max:2000, step:10, int:true,
+  {k:"T", sym:"T", name:"Simulatieduur", min:10, max:500, step:5, int:true,
    what:"Aantal tijdseenheden (de snelheden zijn per tijdseenheid). Dichtbij een kantelpunt duurt het kantelen lang: verhoog T als er niets lijkt te gebeuren.",
    up:"Je ziet meer van het lange-termijngedrag.", down:"Je ziet alleen het begin."},
  ]},
 ];
 
 const PRESETS = [
- {n:"Voorbeeld uit het artikel", p:{lambda:.45,rho:.1,kappa:.4,mu:.2,sigma:.1,gu:1,gc:.5,gd:.1,mode:"const",T:200}},
- {n:"Hysterese-demo (λ omhoog en weer omlaag)", p:{lambda:.45,rho:.1,kappa:.4,mu:.2,sigma:.1,mode:"ramp",T:1500,u0:.98}},
- {n:"Geleidelijk (κ < ρ)", p:{lambda:.5,rho:.3,kappa:.1,mu:.2,sigma:.1,mode:"const",T:200}},
- {n:"Veel afhankelijkheid", p:{lambda:.6,rho:.1,kappa:.4,mu:.6,sigma:.05,mode:"const",T:200}},
- {n:"Met herstelprogramma", p:{lambda:.6,rho:.1,kappa:.4,mu:.05,sigma:.5,mode:"const",T:200}},
+ {n:"Voorbeeld uit het artikel", p:{lambda:.45,rho:.1,kappa:.4,mu:.2,sigma:.1,gu:1,gc:.5,gd:.1,mode:"const",T:50}},
+ {n:"Hysterese-demo (λ omhoog en weer omlaag)", p:{lambda:.45,rho:.1,kappa:.4,mu:.2,sigma:.1,mode:"ramp",T:375,u0:.98}},
+ {n:"Geleidelijk (κ < ρ)", p:{lambda:.5,rho:.3,kappa:.1,mu:.2,sigma:.1,mode:"const",T:50}},
+ {n:"Veel afhankelijkheid", p:{lambda:.6,rho:.1,kappa:.4,mu:.6,sigma:.05,mode:"const",T:50}},
+ {n:"Met herstelprogramma", p:{lambda:.6,rho:.1,kappa:.4,mu:.05,sigma:.5,mode:"const",T:50}},
 ];
 
 /* ---------- model ---------- */
@@ -508,7 +508,7 @@ function buildControls(){
     el.addEventListener("input",()=>{ P[it.k]=+el.value; syncOut(); render(); });
   }
   document.querySelectorAll("#modeSeg button").forEach(b=>b.addEventListener("click",()=>{
-    P.mode=b.dataset.m; if (P.mode==="ramp"&&P.T<800) P.T=1500; if(P.mode==="const"&&P.T>800) P.T=200; syncControls(); render(); }));
+    P.mode=b.dataset.m; if (P.mode==="ramp"&&P.T<200) P.T=375; if(P.mode==="const"&&P.T>200) P.T=50; syncControls(); render(); }));
   document.getElementById("presets").innerHTML=PRESETS.map((p,i)=>`<button type="button" data-i="${i}">${p.n}</button>`).join("");
   document.querySelectorAll("#presets button").forEach(b=>b.addEventListener("click",()=>{ Object.assign(P,DEFAULTS,PRESETS[b.dataset.i].p); syncControls(); render(); }));
   document.querySelectorAll("#viewSeg button").forEach(b=>b.addEventListener("click",()=>{ P.view=b.dataset.v; render(); }));
