@@ -153,6 +153,13 @@
   }
   .gh-row input:focus { border-color: var(--accent); }
   .gh-row .btn:disabled { opacity: 0.5; cursor: wait; }
+  .gh-token {
+    margin-top: 10px; font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
+  }
+  .gh-token summary { cursor: pointer; text-align: center; }
+  .gh-token summary:hover { color: var(--accent); }
+  .gh-token .gh-row { margin-top: 8px; }
+  .gh-token p { margin-top: 6px; line-height: 1.5; }
   .json-loader {
     font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
     margin-top: 24px;
@@ -582,11 +589,18 @@
   <input type="file" id="mdFileWelcome" accept=".md,.markdown,.txt" style="display:none">
 
   <div class="gh-loader">
-    <div class="gh-label">of laad een bestand uit een (publieke) GitHub-repository</div>
+    <div class="gh-label">of laad een bestand uit een GitHub-repository</div>
     <form class="gh-row" id="ghForm">
       <input type="url" id="ghUrl" required placeholder="https://github.com/eigenaar/repo/blob/main/docs/notitie.md">
       <button class="btn" type="submit" id="ghLoadBtn">Laden</button>
     </form>
+    <details class="gh-token" id="ghTokenBox">
+      <summary>Privé repository? Voeg een GitHub-token toe</summary>
+      <div class="gh-row">
+        <input type="password" id="ghToken" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      </div>
+      <p>Maak een <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> met alleen <em>Contents: read-only</em> op de repository's die je wilt reviewen. Het token blijft in deze browser (localStorage) en gaat alleen naar api.github.com. Maak het veld leeg om het te vergeten.</p>
+    </details>
   </div>
 
   <div class="json-loader">
@@ -710,6 +724,8 @@
   const ghForm = document.getElementById('ghForm');
   const ghUrlInput = document.getElementById('ghUrl');
   const ghLoadBtn = document.getElementById('ghLoadBtn');
+  const ghTokenInput = document.getElementById('ghToken');
+  const ghTokenBox = document.getElementById('ghTokenBox');
   const jsonFileWelcome = document.getElementById('jsonFileWelcome');
   const jsonFileMain = document.getElementById('jsonFile');
   const loadJsonWelcomeLink = document.getElementById('loadJsonWelcome');
@@ -738,6 +754,14 @@
   reviewerInput.value = localStorage.getItem('annoteer_reviewer') || '';
   reviewerInput.addEventListener('input', () => {
     localStorage.setItem('annoteer_reviewer', reviewerInput.value);
+  });
+
+  ghTokenInput.value = localStorage.getItem('annoteer_github_token') || '';
+  ghTokenBox.open = !!ghTokenInput.value;
+  ghTokenInput.addEventListener('input', () => {
+    const t = ghTokenInput.value.trim();
+    if (t) localStorage.setItem('annoteer_github_token', t);
+    else localStorage.removeItem('annoteer_github_token');
   });
 
   let toastTimer = null;
@@ -1746,14 +1770,36 @@
 
   // Find the latest commit touching the file, trying the shortest ref first and
   // widening ("feature/x") until the commits API knows both the ref and the path.
+  // All API calls go through here so the optional token (private repos, higher
+  // rate limit) is attached in one place and errors read the same everywhere.
+  async function githubApi(path, accept) {
+    const headers = { Accept: accept || 'application/vnd.github+json' };
+    const token = ghTokenInput.value.trim();
+    if (token) headers.Authorization = 'Bearer ' + token;
+    const res = await fetch('https://api.github.com' + path, { headers });
+    if (res.status === 401) throw new Error('token ongeldig of verlopen');
+    if (res.status === 429 || (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0')) {
+      throw new Error(token ? 'GitHub API-limiet bereikt, probeer het later opnieuw'
+        : 'GitHub API-limiet bereikt — voeg een token toe of probeer het later opnieuw');
+    }
+    if (res.status === 403) throw new Error('geen toegang — heeft het token leesrechten op deze repository?');
+    return res;
+  }
+
+  // GitHub answers 404 (not 403) for private repos you can't see, so a miss
+  // without a token most likely means one is needed.
+  function notFoundError() {
+    if (ghTokenInput.value.trim()) return new Error('bestand niet gevonden (verkeerde link, of het token heeft geen toegang tot deze repository)');
+    ghTokenBox.open = true;
+    return new Error('bestand niet gevonden — is het een privé repository? Voeg dan een token toe');
+  }
+
   async function resolveGithubFile(gh) {
-    const api = `https://api.github.com/repos/${gh.owner}/${gh.repo}/commits`;
+    const api = `/repos/${gh.owner}/${gh.repo}/commits`;
     for (let k = 1; k < gh.rest.length && k <= 4; k++) {
       const ref = gh.rest.slice(0, k).join('/');
       const path = gh.rest.slice(k).join('/');
-      const res = await fetch(`${api}?sha=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}&per_page=1`,
-        { headers: { Accept: 'application/vnd.github+json' } });
-      if (res.status === 403 || res.status === 429) throw new Error('GitHub API-limiet bereikt, probeer het later opnieuw');
+      const res = await githubApi(`${api}?sha=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}&per_page=1`);
       if (!res.ok) continue;
       const commits = await res.json();
       if (commits.length) return { ref, path, commit: commits[0] };
@@ -1767,7 +1813,7 @@
     if (!gh) { showToast('Geen geldige GitHub-link naar een bestand', true); return; }
     await withGithubBusy(async () => {
       const found = await resolveGithubFile(gh);
-      if (!found) throw new Error('bestand niet gevonden (privé repository of verkeerde link?)');
+      if (!found) throw notFoundError();
       const sha = found.commit.sha;
       await openGithubSource({
         type: 'github',
@@ -1792,10 +1838,14 @@
   }
 
   // Fetch the content at the source's commit, not the branch, so text and
-  // metadata always describe the same version. Raw fetches don't count against
-  // the API rate limit, so a known source needs no API call at all.
+  // metadata always describe the same version. Without a token, raw fetches
+  // don't count against the API rate limit; with one, the contents API is used
+  // because raw.githubusercontent.com doesn't accept auth from a web page.
   async function openGithubSource(source) {
-    const res = await fetch(`https://raw.githubusercontent.com/${source.repository}/${source.commit_sha}/${encodePath(source.path)}`);
+    const res = ghTokenInput.value.trim()
+      ? await githubApi(`/repos/${source.repository}/contents/${encodePath(source.path)}?ref=${source.commit_sha}`, 'application/vnd.github.raw')
+      : await fetch(`https://raw.githubusercontent.com/${source.repository}/${source.commit_sha}/${encodePath(source.path)}`);
+    if (res.status === 404) throw notFoundError();
     if (!res.ok) throw new Error('kon bestand niet ophalen (HTTP ' + res.status + ')');
     openDocument(await res.text(), source.path.split('/').pop(), source);
   }
