@@ -70,7 +70,7 @@ file        = "markdown-annotator.html"
 title       = "Markdown Annotator"
 icon        = "✍️"
 category    = "tools"
-description = "Sleep een markdown-bestand naar het scherm en review het: pas tekst aan en plaats opmerkingen. Alles blijft lokaal in de browser tot je het exporteert."
+description = "Sleep een markdown-bestand naar het scherm of geef een GitHub-link en review het: pas tekst aan en plaats opmerkingen. De export legt vast bij welk bestand en welke versie de annotaties horen."
 
 [[tool]]
 file        = "ccv-campings.html"

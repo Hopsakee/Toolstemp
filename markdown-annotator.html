@@ -140,6 +140,19 @@
     font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
     margin-top: 4px; font-style: italic;
   }
+  .gh-loader { margin-top: 8px; text-align: left; }
+  .gh-label {
+    font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
+    margin-bottom: 6px; text-align: center;
+  }
+  .gh-row { display: flex; gap: 8px; }
+  .gh-row input {
+    flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px;
+    border: 1px solid var(--rule); background: rgba(255, 255, 255, 0.6);
+    padding: 8px 10px; color: var(--ink); outline: none; border-radius: 2px;
+  }
+  .gh-row input:focus { border-color: var(--accent); }
+  .gh-row .btn:disabled { opacity: 0.5; cursor: wait; }
   .json-loader {
     font-family: var(--sans); font-size: 12px; color: var(--ink-soft);
     margin-top: 24px;
@@ -559,7 +572,7 @@
 <div id="welcome" class="welcome">
   <span class="eyebrow">Datalab · Annoteer</span>
   <h2>Annoteer een markdown-document</h2>
-  <p class="lede">Sleep een markdown-bestand naar het vlak hieronder om te beginnen. Tekstwijzigingen en opmerkingen blijven lokaal in de browser tot je ze exporteert.</p>
+  <p class="lede">Sleep een markdown-bestand naar het vlak hieronder of geef een GitHub-link om te beginnen. Tekstwijzigingen en opmerkingen blijven lokaal in de browser tot je ze exporteert.</p>
 
   <div class="dropzone" id="dropzone">
     <span class="icon">¶</span>
@@ -567,6 +580,14 @@
     <div class="dropzone-hint">of klik om te bladeren · .md, .markdown, .txt</div>
   </div>
   <input type="file" id="mdFileWelcome" accept=".md,.markdown,.txt" style="display:none">
+
+  <div class="gh-loader">
+    <div class="gh-label">of laad een bestand uit een (publieke) GitHub-repository</div>
+    <form class="gh-row" id="ghForm">
+      <input type="url" id="ghUrl" required placeholder="https://github.com/eigenaar/repo/blob/main/docs/notitie.md">
+      <button class="btn" type="submit" id="ghLoadBtn">Laden</button>
+    </form>
+  </div>
 
   <div class="json-loader">
     Heb je al annotaties van een eerdere ronde? <a id="loadJsonWelcome">Laad eerst een .json</a>
@@ -592,7 +613,7 @@
   </div>
   <div class="masthead-right">
     <button class="btn ghost" id="toggleNavBtn" title="Inhoudsopgave tonen of verbergen">☰ Inhoud</button>
-    <button class="btn ghost" id="changeMdBtn" title="Ander markdown-bestand laden (annotaties gaan verloren)">↺ Ander document</button>
+    <button class="btn ghost" id="changeMdBtn" title="Ander markdown-bestand of GitHub-link laden (annotaties gaan verloren)">↺ Ander document</button>
     <button class="btn ghost" id="loadJsonBtn">↑ Annotaties (.json)</button>
     <button class="btn" id="saveJsonBtn">↓ Annotaties (.json)</button>
     <button class="btn" id="exportMdBtn">↓ Rapport</button>
@@ -601,7 +622,6 @@
 </header>
 
 <input type="file" id="jsonFile" accept=".json" style="display:none">
-<input type="file" id="mdFileChange" accept=".md,.markdown,.txt" style="display:none">
 
 <div class="layout" id="layout" style="display:none;">
   <nav class="navpane" id="navpane">
@@ -673,6 +693,9 @@
   let documentMarkdown = '';
   let documentTitle = 'Document';
   let mdFilename = 'document.md';
+  // Where the loaded markdown came from (local file or GitHub commit); written into
+  // the JSON export so annotations can be traced back to the exact original.
+  let docSource = null;
   let currentBlocks = [];
   let pendingJsonData = null;
   let currentRange = null;
@@ -684,7 +707,9 @@
   const layoutEl = document.getElementById('layout');
   const dropzone = document.getElementById('dropzone');
   const mdFileWelcome = document.getElementById('mdFileWelcome');
-  const mdFileChange = document.getElementById('mdFileChange');
+  const ghForm = document.getElementById('ghForm');
+  const ghUrlInput = document.getElementById('ghUrl');
+  const ghLoadBtn = document.getElementById('ghLoadBtn');
   const jsonFileWelcome = document.getElementById('jsonFileWelcome');
   const jsonFileMain = document.getElementById('jsonFile');
   const loadJsonWelcomeLink = document.getElementById('loadJsonWelcome');
@@ -715,11 +740,13 @@
     localStorage.setItem('annoteer_reviewer', reviewerInput.value);
   });
 
+  let toastTimer = null;
   function showToast(msg, isError) {
     toast.textContent = msg;
     toast.classList.toggle('error', !!isError);
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2400);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), isError ? 5000 : 2400);
   }
 
   function escapeHtml(s) {
@@ -1167,6 +1194,13 @@
     welcomeEl.style.display = 'none';
     mastheadEl.style.display = 'flex';
     layoutEl.style.display = 'grid';
+  }
+
+  function showWelcome() {
+    welcomeEl.style.display = '';
+    mastheadEl.style.display = 'none';
+    layoutEl.style.display = 'none';
+    window.scrollTo(0, 0);
   }
 
   function placeAnnotationInDOM(ann) {
@@ -1655,32 +1689,142 @@
     if (e.key === 'Escape' && mermaidLightbox.classList.contains('open')) closeMermaidLightbox();
   });
 
+  function openDocument(text, filename, source) {
+    mdFilename = filename;
+    docSource = source;
+    mdPillEl.textContent = sourceLabel(true);
+    mdPillEl.title = sourceLabel(false);
+    jsonHandle = null;
+    updateAutosavePill();
+    annotations = [];
+    nextId = 1;
+    expandedIds = new Set();
+    renderDocument(text);
+    showEditor();
+    if (pendingJsonData) {
+      reportLoaded(loadAnnotationsData(pendingJsonData), pendingJsonData);
+      pendingJsonData = null;
+      pendingJsonEl.style.display = 'none';
+    } else {
+      showToast(filename + ' geladen');
+      offerDraftRestore();
+    }
+    savedSnapshot = snapshot();
+  }
+
   function loadMarkdownFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      mdFilename = file.name;
-      mdPillEl.textContent = file.name;
-      jsonHandle = null;
-      updateAutosavePill();
-      annotations = [];
-      nextId = 1;
-      renderDocument(e.target.result);
-      showEditor();
-      if (pendingJsonData) {
-        const result = loadAnnotationsData(pendingJsonData);
-        let msg = `${result.loaded} annotaties geladen`;
-        if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
-        showToast(msg);
-        pendingJsonData = null;
-        pendingJsonEl.style.display = 'none';
-      } else {
-        showToast(file.name + ' geladen');
-        offerDraftRestore();
-      }
-      savedSnapshot = snapshot();
+      history.replaceState(null, '', location.pathname);
+      openDocument(e.target.result, file.name, {
+        type: 'file',
+        filename: file.name,
+        last_modified: new Date(file.lastModified).toISOString()
+      });
     };
     reader.onerror = () => showToast('Kon bestand niet lezen', true);
     reader.readAsText(file);
+  }
+
+  // Accepts github.com/<o>/<r>/blob/<ref>/<path> and raw.githubusercontent.com
+  // links. The ref/path split is ambiguous (branches may contain "/"), so it is
+  // resolved against the API in resolveGithubFile().
+  function parseGithubUrl(input) {
+    let u;
+    try { u = new URL(input.trim()); } catch (e) { return null; }
+    const segs = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    if (u.hostname === 'github.com' && segs.length >= 5 && (segs[2] === 'blob' || segs[2] === 'raw')) {
+      return { owner: segs[0], repo: segs[1], rest: segs.slice(3) };
+    }
+    if (u.hostname === 'raw.githubusercontent.com' && segs.length >= 4) {
+      let rest = segs.slice(2);
+      if (rest[0] === 'refs' && (rest[1] === 'heads' || rest[1] === 'tags')) rest = rest.slice(2);
+      return { owner: segs[0], repo: segs[1], rest };
+    }
+    return null;
+  }
+
+  // Find the latest commit touching the file, trying the shortest ref first and
+  // widening ("feature/x") until the commits API knows both the ref and the path.
+  async function resolveGithubFile(gh) {
+    const api = `https://api.github.com/repos/${gh.owner}/${gh.repo}/commits`;
+    for (let k = 1; k < gh.rest.length && k <= 4; k++) {
+      const ref = gh.rest.slice(0, k).join('/');
+      const path = gh.rest.slice(k).join('/');
+      const res = await fetch(`${api}?sha=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}&per_page=1`,
+        { headers: { Accept: 'application/vnd.github+json' } });
+      if (res.status === 403 || res.status === 429) throw new Error('GitHub API-limiet bereikt, probeer het later opnieuw');
+      if (!res.ok) continue;
+      const commits = await res.json();
+      if (commits.length) return { ref, path, commit: commits[0] };
+    }
+    return null;
+  }
+
+  async function loadFromGithub(url) {
+    const gh = parseGithubUrl(url);
+    if (!gh) { showToast('Geen geldige GitHub-link naar een bestand', true); return; }
+    ghLoadBtn.disabled = true;
+    try {
+      const found = await resolveGithubFile(gh);
+      if (!found) throw new Error('bestand niet gevonden (privé repository of verkeerde link?)');
+      const sha = found.commit.sha;
+      const encPath = found.path.split('/').map(encodeURIComponent).join('/');
+      // Fetch the content at the resolved commit, not the branch, so text and
+      // metadata always describe the same version.
+      const res = await fetch(`https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${sha}/${encPath}`);
+      if (!res.ok) throw new Error('kon bestand niet ophalen (HTTP ' + res.status + ')');
+      const text = await res.text();
+      history.replaceState(null, '', '?src=' + encodeURIComponent(url));
+      openDocument(text, found.path.split('/').pop(), {
+        type: 'github',
+        url: url.trim(),
+        permalink: `https://github.com/${gh.owner}/${gh.repo}/blob/${sha}/${encPath}`,
+        repository: `${gh.owner}/${gh.repo}`,
+        ref: found.ref,
+        path: found.path,
+        commit_sha: sha,
+        commit_date: found.commit.commit.committer.date
+      });
+    } catch (err) {
+      showToast('GitHub: ' + err.message, true);
+    } finally {
+      ghLoadBtn.disabled = false;
+    }
+  }
+
+  // Short form for the masthead pill, long form for tooltips and the report.
+  function sourceLabel(short) {
+    const s = docSource;
+    if (!s) return mdFilename;
+    const when = (iso) => new Date(iso).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
+    if (s.type === 'github') {
+      return short
+        ? `${s.repository}/${s.path} @ ${s.commit_sha.slice(0, 7)}`
+        : `${s.permalink} (commit ${s.commit_sha.slice(0, 7)}, ${when(s.commit_date)})`;
+    }
+    return short ? s.filename : `${s.filename} (gewijzigd ${when(s.last_modified)})`;
+  }
+
+  // Warn when a JSON was made against another file or another version of it.
+  function sourceMismatch(data) {
+    const a = data.source, b = docSource;
+    if (!a || !b || a.type !== b.type) return '';
+    if (a.type === 'github') {
+      if (a.repository !== b.repository || a.path !== b.path) return `hoort bij ${a.repository}/${a.path}`;
+      if (a.commit_sha !== b.commit_sha) return `gemaakt op andere versie (${a.commit_sha.slice(0, 7)})`;
+    } else if (a.filename !== b.filename || a.last_modified !== b.last_modified) {
+      return `gemaakt op ${a.filename} van ${new Date(a.last_modified).toLocaleString('nl-NL')}`;
+    }
+    return '';
+  }
+
+  function reportLoaded(result, data) {
+    let msg = `${result.loaded} annotaties geladen`;
+    if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
+    const mismatch = sourceMismatch(data);
+    if (mismatch) msg += ' — let op: ' + mismatch;
+    showToast(msg, !!mismatch);
   }
 
   function tryParseJson(file, onSuccess) {
@@ -1724,8 +1868,17 @@
     tryParseJson(file, (data) => {
       pendingJsonData = data;
       const safeName = escapeHtml(file.name);
-      pendingJsonEl.innerHTML = `✓ <strong>${safeName}</strong> klaar — laad nu het bijbehorende markdown-bestand · <span class="clear-pending">verwijder</span>`;
+      const gh = data.source && data.source.type === 'github' ? data.source : null;
+      pendingJsonEl.innerHTML = `✓ <strong>${safeName}</strong> klaar — laad nu het bijbehorende markdown-bestand`
+        + (gh ? ` · <a class="load-source">bron laden van GitHub (${escapeHtml(gh.commit_sha.slice(0, 7))})</a>` : '')
+        + ` · <span class="clear-pending">verwijder</span>`;
       pendingJsonEl.style.display = 'block';
+      if (gh) {
+        pendingJsonEl.querySelector('.load-source').addEventListener('click', () => {
+          ghUrlInput.value = gh.permalink;
+          loadFromGithub(gh.permalink);
+        });
+      }
       pendingJsonEl.querySelector('.clear-pending').addEventListener('click', () => {
         pendingJsonData = null;
         pendingJsonEl.style.display = 'none';
@@ -1738,23 +1891,19 @@
     if (annotations.length > 0 || generalNotes.value.trim()) {
       if (!confirm('Je hebt annotaties die mogelijk niet opgeslagen zijn. Doorgaan?')) return;
     }
-    mdFileChange.click();
+    showWelcome();
   });
-  mdFileChange.addEventListener('change', (e) => {
-    if (e.target.files[0]) loadMarkdownFile(e.target.files[0]);
-    e.target.value = '';
+
+  ghForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    loadFromGithub(ghUrlInput.value);
   });
 
   document.getElementById('loadJsonBtn').addEventListener('click', () => jsonFileMain.click());
   jsonFileMain.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    tryParseJson(file, (data) => {
-      const result = loadAnnotationsData(data);
-      let msg = `${result.loaded} annotaties geladen`;
-      if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
-      showToast(msg);
-    });
+    tryParseJson(file, (data) => reportLoaded(loadAnnotationsData(data), data));
     e.target.value = '';
   });
 
@@ -1773,9 +1922,10 @@
 
   function buildPayload() {
     return {
-      version: 2,
+      version: 3,
       document_filename: mdFilename,
       document_title: documentTitle,
+      source: docSource,
       exported_at: new Date().toISOString(),
       reviewer: reviewerInput.value.trim() || 'onbekend',
       general_notes: generalNotes.value.trim(),
@@ -1865,7 +2015,7 @@
     const me = reviewerInput.value.trim() || 'onbekend';
 
     let md = `# Feedback — ${documentTitle}\n\n`;
-    md += `**Bron:** ${mdFilename}  \n`;
+    md += `**Bron:** ${sourceLabel(false)}  \n`;
     md += `**Reviewer:** ${me}  \n`;
     md += `**Datum:** ${dateStr}, ${timeStr}  \n`;
     md += `**Aantal annotaties:** ${annotations.length}\n\n---\n\n`;
@@ -2050,15 +2200,17 @@
         }
         loadMarkdownFile(file);
       } else if (/\.json$/i.test(file.name)) {
-        tryParseJson(file, (data) => {
-          const result = loadAnnotationsData(data);
-          let msg = `${result.loaded} annotaties geladen`;
-          if (result.skipped > 0) msg += ` (${result.skipped} niet gevonden)`;
-          showToast(msg);
-        });
+        tryParseJson(file, (data) => reportLoaded(loadAnnotationsData(data), data));
       }
     }
   });
+
+  // ?src=<github-link> makes a review session shareable as a single URL.
+  const srcParam = new URLSearchParams(location.search).get('src');
+  if (srcParam) {
+    ghUrlInput.value = srcParam;
+    loadFromGithub(srcParam);
+  }
 })();
 </script>
 </body>
