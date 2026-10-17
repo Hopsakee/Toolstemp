@@ -1692,6 +1692,7 @@
   function openDocument(text, filename, source) {
     mdFilename = filename;
     docSource = source;
+    history.replaceState(null, '', source.type === 'github' ? '?src=' + encodeURIComponent(source.url) : location.pathname);
     mdPillEl.textContent = sourceLabel(true);
     mdPillEl.title = sourceLabel(false);
     jsonHandle = null;
@@ -1715,7 +1716,6 @@
   function loadMarkdownFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      history.replaceState(null, '', location.pathname);
       openDocument(e.target.result, file.name, {
         type: 'file',
         filename: file.name,
@@ -1762,60 +1762,66 @@
   }
 
   async function loadFromGithub(url) {
+    ghUrlInput.value = url;
     const gh = parseGithubUrl(url);
     if (!gh) { showToast('Geen geldige GitHub-link naar een bestand', true); return; }
-    ghLoadBtn.disabled = true;
-    try {
+    await withGithubBusy(async () => {
       const found = await resolveGithubFile(gh);
       if (!found) throw new Error('bestand niet gevonden (privé repository of verkeerde link?)');
       const sha = found.commit.sha;
-      const encPath = found.path.split('/').map(encodeURIComponent).join('/');
-      // Fetch the content at the resolved commit, not the branch, so text and
-      // metadata always describe the same version.
-      const res = await fetch(`https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${sha}/${encPath}`);
-      if (!res.ok) throw new Error('kon bestand niet ophalen (HTTP ' + res.status + ')');
-      const text = await res.text();
-      history.replaceState(null, '', '?src=' + encodeURIComponent(url));
-      openDocument(text, found.path.split('/').pop(), {
+      await openGithubSource({
         type: 'github',
         url: url.trim(),
-        permalink: `https://github.com/${gh.owner}/${gh.repo}/blob/${sha}/${encPath}`,
+        permalink: `https://github.com/${gh.owner}/${gh.repo}/blob/${sha}/${encodePath(found.path)}`,
         repository: `${gh.owner}/${gh.repo}`,
         ref: found.ref,
         path: found.path,
         commit_sha: sha,
         commit_date: found.commit.commit.committer.date
       });
-    } catch (err) {
-      showToast('GitHub: ' + err.message, true);
-    } finally {
-      ghLoadBtn.disabled = false;
-    }
+    });
   }
+
+  const encodePath = (path) => path.split('/').map(encodeURIComponent).join('/');
+
+  async function withGithubBusy(fn) {
+    ghLoadBtn.disabled = true;
+    try { await fn(); }
+    catch (err) { showToast('GitHub: ' + err.message, true); }
+    finally { ghLoadBtn.disabled = false; }
+  }
+
+  // Fetch the content at the source's commit, not the branch, so text and
+  // metadata always describe the same version. Raw fetches don't count against
+  // the API rate limit, so a known source needs no API call at all.
+  async function openGithubSource(source) {
+    const res = await fetch(`https://raw.githubusercontent.com/${source.repository}/${source.commit_sha}/${encodePath(source.path)}`);
+    if (!res.ok) throw new Error('kon bestand niet ophalen (HTTP ' + res.status + ')');
+    openDocument(await res.text(), source.path.split('/').pop(), source);
+  }
+
+  const fmtDate = (iso) => new Date(iso).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
+  // Type-independent views of a source: which file it is, and which version.
+  const sourceId = (s) => s.type === 'github' ? `${s.repository}/${s.path}` : s.filename;
+  const sourceVersion = (s) => s.type === 'github' ? s.commit_sha : s.last_modified;
+  const versionLabel = (s) => s.type === 'github'
+    ? `commit ${s.commit_sha.slice(0, 7)}, ${fmtDate(s.commit_date)}`
+    : `gewijzigd ${fmtDate(s.last_modified)}`;
 
   // Short form for the masthead pill, long form for tooltips and the report.
   function sourceLabel(short) {
     const s = docSource;
     if (!s) return mdFilename;
-    const when = (iso) => new Date(iso).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' });
-    if (s.type === 'github') {
-      return short
-        ? `${s.repository}/${s.path} @ ${s.commit_sha.slice(0, 7)}`
-        : `${s.permalink} (commit ${s.commit_sha.slice(0, 7)}, ${when(s.commit_date)})`;
-    }
-    return short ? s.filename : `${s.filename} (gewijzigd ${when(s.last_modified)})`;
+    if (short) return s.type === 'github' ? `${sourceId(s)} @ ${s.commit_sha.slice(0, 7)}` : sourceId(s);
+    return `${s.permalink || s.filename} (${versionLabel(s)})`;
   }
 
   // Warn when a JSON was made against another file or another version of it.
   function sourceMismatch(data) {
     const a = data.source, b = docSource;
     if (!a || !b || a.type !== b.type) return '';
-    if (a.type === 'github') {
-      if (a.repository !== b.repository || a.path !== b.path) return `hoort bij ${a.repository}/${a.path}`;
-      if (a.commit_sha !== b.commit_sha) return `gemaakt op andere versie (${a.commit_sha.slice(0, 7)})`;
-    } else if (a.filename !== b.filename || a.last_modified !== b.last_modified) {
-      return `gemaakt op ${a.filename} van ${new Date(a.last_modified).toLocaleString('nl-NL')}`;
-    }
+    if (sourceId(a) !== sourceId(b)) return `hoort bij ${sourceId(a)}`;
+    if (sourceVersion(a) !== sourceVersion(b)) return `gemaakt op andere versie (${versionLabel(a)})`;
     return '';
   }
 
@@ -1875,8 +1881,8 @@
       pendingJsonEl.style.display = 'block';
       if (gh) {
         pendingJsonEl.querySelector('.load-source').addEventListener('click', () => {
-          ghUrlInput.value = gh.permalink;
-          loadFromGithub(gh.permalink);
+          ghUrlInput.value = gh.url;
+          withGithubBusy(() => openGithubSource(gh));
         });
       }
       pendingJsonEl.querySelector('.clear-pending').addEventListener('click', () => {
@@ -2208,7 +2214,6 @@
   // ?src=<github-link> makes a review session shareable as a single URL.
   const srcParam = new URLSearchParams(location.search).get('src');
   if (srcParam) {
-    ghUrlInput.value = srcParam;
     loadFromGithub(srcParam);
   }
 })();
