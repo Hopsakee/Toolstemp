@@ -25,7 +25,7 @@ cta          = "Open de kaart →"
 # Add a new category here (key + label + button_class + cta) to start a section.
 [[category]]
 key          = "tools"
-label        = "Meer tools"
+label        = "Tools"
 button_class = "btn-app"
 cta          = "Open app"
 
@@ -48,7 +48,6 @@ file        = "grondwater-trends.html"
 title       = "Grondwaterstandtrends"
 icon        = "🗺️"
 category    = "tools"
-featured    = true
 description = "Een interactieve kaart van Nederland met 25-jaar trends in de grondwaterstand bij ~90 peilbuizen, op basis van BRO/DINO-data. Bekijk per locatie hoe de zomer- en winterstanden zich over de jaren hebben ontwikkeld — in één oogopslag op de kaart."
 
 [[tool]]
