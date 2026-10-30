@@ -119,3 +119,10 @@ title       = "LLM als cognitief virus"
 icon        = "🧠"
 category    = "tools"
 description = "Speel met het model uit Solé et al. (2026): hoe verspreidt LLM-gebruik zich, en wanneer kantelt zelf denken naar afhankelijkheid? Pas verspreiding, terugkeer, collectieve versterking, doorglijden en herstel aan, en zie kantelpunten, hysterese en het effect op competentie."
+
+[[tool]]
+file        = "util-fossiel-energieverbruik.html"
+title       = "Fossiel energieverbruik NL"
+icon        = "🛢️"
+category    = "tools"
+description = "Veertig jaar kolen, olie en aardgas in Nederland (1985–2025): per energiedrager en per gebruiker, absoluut of per inwoner, huishouden en euro bbp, en naast de brandstofprijs. Alleen officiële CBS-reeksen, met breuken en ontbrekende reeksen zichtbaar gemaakt."
