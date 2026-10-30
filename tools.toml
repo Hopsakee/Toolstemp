@@ -126,3 +126,10 @@ title       = "Fossiel energieverbruik NL"
 icon        = "🛢️"
 category    = "tools"
 description = "Veertig jaar kolen, olie en aardgas in Nederland (1985–2025): per energiedrager en per gebruiker, absoluut of per inwoner, huishouden en euro bbp, en naast de brandstofprijs. Alleen officiële CBS-reeksen, met breuken en ontbrekende reeksen zichtbaar gemaakt."
+
+[[tool]]
+file        = "util-bodemgebruik.html"
+title       = "Bodemgebruik NL"
+icon        = "🌾"
+category    = "tools"
+description = "Waar ligt Nederland onder? Bebouwing, wegen, landbouw, natuur en water van 1985 tot 2022, plus de jaarlijkse landbouwgrond, gewassen, bedrijven en vee tot 2026. Absoluut, als aandeel, per inwoner of per huishouden. Alleen officiële CBS-reeksen, met methodebreuken zichtbaar."
