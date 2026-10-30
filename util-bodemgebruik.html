@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bodemgebruik Nederland</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+/* Layout: statistisch werkblad (bodemgebruik) — sticky bedieningsbalk, secties onder elkaar, elke grafiek met bron-ID en tabelweergave */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --ink:#13191e; --muted:#56616b; --faint:#8a949d; --line:#dde2e6;
+  --accent:#4a6b16; --accent-soft:#e6eed6; --prov:rgba(19,25,30,.055);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#6250d6; --s8:#e34948;
+  --n1:#454e57; --n2:#8a949d; --n3:#bcc3c9;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101417; --surface:#171c20; --ink:#e9edf0; --muted:#a3adb6; --faint:#76818b; --line:#2a3238;
+  --accent:#9cc25a; --accent-soft:#26301a; --prov:rgba(233,237,240,.06);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --n1:#c3cbd2; --n2:#7f8a94; --n3:#4a535b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101417; --surface:#171c20; --ink:#e9edf0; --muted:#a3adb6; --faint:#76818b; --line:#2a3238;
+  --accent:#9cc25a; --accent-soft:#26301a; --prov:rgba(233,237,240,.06);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --n1:#c3cbd2; --n2:#7f8a94; --n3:#4a535b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--f-body);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{padding-block:28px 18px}
+.eyebrow{font:500 12px/1.2 var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:800 clamp(30px,5vw,48px)/1.02 var(--f-display);font-stretch:82%;margin:.3em 0 .25em;text-wrap:balance;letter-spacing:-.01em}
+h2{font:750 24px/1.15 var(--f-display);font-stretch:85%;margin:0;text-wrap:balance}
+h3{font:700 17px/1.2 var(--f-display);font-stretch:90%;margin:0}
+p{margin:0}
+.lede{max-width:68ch;color:var(--muted)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:end;padding-block:10px}
+.ctl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ctl>span,.lbl{font:500 11px/1.2 var(--f-data);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+select,button{font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:6px 8px;max-width:100%}
+select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:14px;cursor:pointer;user-select:none;background:var(--surface)}
+.chip input{margin:0;accent-color:var(--accent)}
+.chip .sw{width:10px;height:10px;border-radius:2px}
+main{display:flex;flex-direction:column;gap:28px;padding-block:24px 48px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi .v{font:700 30px/1.05 var(--f-display);font-stretch:85%;font-variant-numeric:tabular-nums}
+.kpi .v small{font:500 13px var(--f-data);color:var(--muted);margin-left:4px}
+.kpi .d{font-size:13px;color:var(--muted)}
+.pill{display:inline-block;font:500 10.5px/1 var(--f-data);letter-spacing:.05em;text-transform:uppercase;padding:3px 6px;border-radius:4px;background:var(--accent-soft);color:var(--ink);vertical-align:middle}
+section.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px clamp(14px,2.5vw,24px);display:flex;flex-direction:column;gap:12px;min-width:0}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:start}
+.head>div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.sub{color:var(--muted);font-size:14.5px;max-width:78ch}
+.opts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:end}
+.chart{position:relative;height:340px;min-width:0}
+.chart.sm{height:250px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:18px}
+.grid2>div{min-width:0;display:flex;flex-direction:column;gap:8px}
+.foot{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.src{font:400 12px var(--f-data)}
+.tbl{overflow-x:auto;max-height:360px;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;font:400 12.5px var(--f-data);font-variant-numeric:tabular-nums;width:100%}
+th,td{padding:4px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--surface);font-weight:500;color:var(--muted)}
+td:first-child,th:first-child{text-align:left}
+.note{font-size:14px;color:var(--muted);max-width:80ch}
+.gaps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px}
+.gap{border:1px dashed var(--n2);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.gap b{font-family:var(--f-display);font-stretch:90%}
+.gap span{font-size:14px;color:var(--muted)}
+.legend-note{font-size:13px;color:var(--muted)}
+.srclist{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:6px 20px;font-size:14px}
+.srclist div{min-width:0}
+.srclist code{font:500 12.5px var(--f-data);color:var(--accent)}
+a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <div class="eyebrow">CBS Bodemgebruik en Landbouwtelling · 1985–2026 · km²</div>
+  <h1>Bodemgebruik in Nederland</h1>
+  <p class="lede">Waar ligt Nederland onder: bebouwing, wegen, landbouw, natuur en water, over veertig jaar. Absoluut, als aandeel, per inwoner en per huishouden. Alle cijfers zijn officiële CBS-reeksen, opgehaald op 30 oktober 2026. Methodebreuken staan als stippellijn in de grafiek.</p>
+</header>
+
+<div class="bar">
+  <div class="wrap">
+    <label class="ctl"><span>Eenheid</span>
+      <select id="unit">
+        <option value="abs">Absoluut (km²)</option>
+        <option value="pct">Aandeel van het getoonde totaal (%)</option>
+        <option value="inw">Per inwoner (m²)</option>
+        <option value="hh">Per huishouden (m²)</option>
+        <option value="idx">Index, eerste getoonde jaar = 100</option>
+      </select></label>
+    <label class="ctl"><span>Van</span><select id="y0"></select></label>
+    <label class="ctl"><span>Tot en met</span><select id="y1"></select></label>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <section class="card">
+    <div class="head"><div>
+      <h2>Hoofdgebruik van het land</h2>
+      <p class="sub">Het Bestand Bodemgebruik deelt elk stuk Nederland in bij één gebruiksvorm. Het wordt niet elk jaar gemaakt; de grafiek toont alleen de peiljaren. CBS heeft de methode twee keer herzien (1996 en 2020) en raadt af losse peiljaren over zo'n breuk direct te vergelijken. Na 2020 telt alleen nog de hoofdweg als verkeersterrein; kleinere wegen vallen onder het gebruik eromheen.</p>
+    </div>
+    <div class="opts"><div class="ctl"><span>Ook tonen</span><div class="chips">
+      <label class="chip"><input type="checkbox" id="wBin"> Binnenwater</label>
+      <label class="chip"><input type="checkbox" id="wBuit"> Buitenwater</label></div></div></div></div>
+    <div class="chart"><canvas id="c-hoofd" aria-label="Hoofdgebruik"></canvas></div>
+    <div class="foot"><span class="src">CBS 37105 (1985–1993) · 70262ned (1996–2017) · 86210NED (2020) · 86211NED (2022)</span><button data-tbl="c-hoofd">Tabel tonen</button></div>
+    <div class="tbl" id="t-c-hoofd" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div>
+      <h2>Detail per gebruiksvorm, 1996–2022</h2>
+      <p class="sub">Fijnere indeling uit het Bestand Bodemgebruik. Sommige categorieën bestaan pas sinds de nieuwe methode (zonnepark, stedelijk groen, akker en grasland) of zijn toen opgeheven (park en plantsoen, wrakkenopslag). De stippellijn is het totaal van de groep.</p>
+    </div>
+    <div class="opts"><label class="ctl"><span>Groep</span><select id="dgroup"></select></label></div></div>
+    <div class="chart"><canvas id="c-detail" aria-label="Detail per gebruiksvorm"></canvas></div>
+    <div class="foot"><span class="src">CBS 70262ned · 86210NED · 86211NED</span><button data-tbl="c-detail">Tabel tonen</button></div>
+    <div class="tbl" id="t-c-detail" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div>
+      <h2>Ruimte per persoon en per woning</h2>
+      <p class="sub">Officiële oppervlakten gedeeld door officiële aantallen van hetzelfde jaar: bevolking en huishoudens op 1 januari, woningvoorraad aan het begin van het jaar. De eenheidskeuze bovenaan geldt hier niet.</p>
+    </div></div>
+    <div class="grid2">
+      <div><h3>Bebouwd terrein en verkeersterrein per inwoner</h3>
+        <div class="chart sm"><canvas id="c-perinw" aria-label="Per inwoner"></canvas></div>
+        <div class="foot"><span class="src">BBG ÷ 85496NED</span><button data-tbl="c-perinw">Tabel tonen</button></div>
+        <div class="tbl" id="t-c-perinw" hidden></div></div>
+      <div><h3>Woonterrein per woning</h3>
+        <div class="chart sm"><canvas id="c-perwon" aria-label="Woonterrein per woning"></canvas></div>
+        <div class="foot"><span class="src">BBG woonterrein ÷ 82235NED</span><button data-tbl="c-perwon">Tabel tonen</button></div>
+        <div class="tbl" id="t-c-perwon" hidden></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div>
+      <h2>Landbouwgrond, jaarlijks</h2>
+      <p class="sub">De Landbouwtelling meet elk jaar het grondgebruik van landbouwbedrijven. Dat is ander gebied dan ‘agrarisch terrein’ hierboven: alleen grond in gebruik bij geregistreerde bedrijven. In 2000 verschuift de indeling: groenvoedergewassen zoals snijmaïs tellen tot en met 1999 bij akkerbouw en vanaf 2000 bij grasland, en braak valt vanaf 2000 onder akkerbouw.</p>
+    </div></div>
+    <div class="chart"><canvas id="c-agri" aria-label="Cultuurgrond"></canvas></div>
+    <div class="foot"><span class="src">CBS 37858 (t/m 1999, afgerond op 1.000 ha) · 81302ned (vanaf 2000; 2026 voorlopig)</span><button data-tbl="c-agri">Tabel tonen</button></div>
+    <div class="tbl" id="t-c-agri" hidden></div>
+    <div class="grid2">
+      <div><h3>Akkerbouw naar gewasgroep, vanaf 2000</h3>
+        <div class="chart sm"><canvas id="c-akk" aria-label="Akkerbouw"></canvas></div>
+        <div class="foot"><span class="src">CBS 81302ned</span><button data-tbl="c-akk">Tabel tonen</button></div>
+        <div class="tbl" id="t-c-akk" hidden></div></div>
+      <div><h3>Grasland en groenvoeder, vanaf 2000</h3>
+        <div class="chart sm"><canvas id="c-gras" aria-label="Grasland"></canvas></div>
+        <div class="foot"><span class="src">CBS 81302ned</span><button data-tbl="c-gras">Tabel tonen</button></div>
+        <div class="tbl" id="t-c-gras" hidden></div></div>
+    </div>
+    <div><h3>Zes gewassen door de jaren</h3>
+      <p class="legend-note">Teeltoppervlakte per gewas; dezelfde gewasnaam in beide tabellen, met de breuk in 2000 gemarkeerd.</p>
+      <div class="chart"><canvas id="c-gewas" aria-label="Gewassen"></canvas></div>
+      <div class="foot"><span class="src">CBS 37858 · 81302ned</span><button data-tbl="c-gewas">Tabel tonen</button></div>
+      <div class="tbl" id="t-c-gewas" hidden></div></div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div>
+      <h2>Bedrijven en vee</h2>
+      <p class="sub">Minder bedrijven op ongeveer evenveel grond. De veestapel staat als index omdat de aantallen te ver uiteenlopen voor één as. De ondergrens voor meetelling in de Landbouwtelling is in de loop der jaren aangepast; kleine bedrijven vallen daardoor deels buiten de telling.</p>
+    </div></div>
+    <div class="grid2">
+      <div><h3>Hectare cultuurgrond per bedrijf</h3>
+        <div class="chart sm"><canvas id="c-schaal" aria-label="Bedrijfsgrootte"></canvas></div>
+        <div class="foot"><span class="src">CBS 37858 · 81302ned</span><button data-tbl="c-schaal">Tabel tonen</button></div>
+        <div class="tbl" id="t-c-schaal" hidden></div></div>
+      <div><h3>Veestapel, index eerste getoonde jaar = 100</h3>
+        <div class="chart sm"><canvas id="c-vee" aria-label="Veestapel"></canvas></div>
+        <div class="foot"><span class="src">CBS 37858 · 81302ned</span><button data-tbl="c-vee">Tabel tonen</button></div>
+        <div class="tbl" id="t-c-vee" hidden></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div><h2>Wat niet bestaat als officiële reeks</h2>
+      <p class="sub">Deze uitsplitsingen zijn niet als landelijke CBS-reeks beschikbaar en zijn bewust niet geschat.</p></div></div>
+    <div class="gaps">
+      <div class="gap"><b>Jaarlijks bodemgebruik</b><span>Het Bestand Bodemgebruik heeft peiljaren; tussenjaren bestaan niet en zijn niet ingevuld.</span></div>
+      <div class="gap"><b>Gecorrigeerde meerjarenreeks</b><span>CBS publiceert gecorrigeerde oudere peiljaren alleen als GIS-mutatiebestand, niet als StatLine-tabel. Deze pagina gebruikt de losse standopnames.</span></div>
+      <div class="gap"><b>Bodemgebruik 2023 en later</b><span>Na peiljaar 2022 is nog geen landelijke StatLine-tabel verschenen.</span></div>
+      <div class="gap"><b>Natuurnetwerk en beschermde natuur</b><span>Natuurbeleid (NNN, Natura 2000) is een andere indeling dan gebruiksvorm en staat niet in deze tabellen.</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head"><div><h2>Bronnen en bewerkingen</h2>
+      <p class="sub">Alle data: CBS StatLine, licentie CC BY 4.0, bulkdownload via datasets.cbs.nl op 30 oktober 2026.</p></div></div>
+    <div class="srclist">
+      <div><code>37105</code> Bodemgebruik, verkorte indeling, vanaf 1900 (gebruikt: 1985, 1989, 1993)</div>
+      <div><code>70262ned</code> Bodemgebruik, uitgebreide indeling, 1996–2017</div>
+      <div><code>86210NED · 86211NED</code> Bodemgebruik 2020 en 2022, herziene methode</div>
+      <div><code>37858</code> Historie landbouw, t/m 1999</div>
+      <div><code>81302ned</code> Landbouw; gewassen, dieren, grondgebruik, 2000–2026</div>
+      <div><code>85496NED</code> Bevolking en particuliere huishoudens op 1 januari</div>
+      <div><code>82235NED</code> Woningvoorraad, beginstand per jaar</div>
+    </div>
+    <p class="note"><b>Bewerkingen.</b> Hectare is omgerekend naar km² (÷ 100). Landoppervlak is totale oppervlakte min binnen- en buitenwater; vanaf 2020 de CBS-post ‘Totaal land’. ‘Overige groenvoedergewassen’ en ‘graszaden, peulvruchten, overige’ zijn optellingen van CBS-posten. Hectare per bedrijf en de per-persoonscijfers zijn delingen van twee officiële reeksen van hetzelfde jaar. Huishoudens kennen een trendbreuk in 2014. Er is niets geïnterpoleerd of over een methodebreuk heen geschaald.</p>
+  </section>
+</main>
+<script id="data" type="application/json">{"bbg":{"1985":{"verkeer":1328.0,"bebouwd":2885.0,"semi":452.0,"recreatie":782.0,"agrarisch":23974.0,"natuur":4500.0,"binnenwater":1677.0,"buitenwater":1737.0,"totaal":37334.0,"land":33920.0,"m":"A","wonen":2085.0,"bedrijf_incl":618.0,"sociaal":183.0,"weg":1181.0,"spoor":103.0,"vliegveld":43.0,"glas":138.0,"agr_overig":23836.0,"bos":3003.0,"open_nat":1497.0},"1989":{"verkeer":1374.0,"bebouwd":2973.0,"semi":429.0,"recreatie":784.0,"agrarisch":23833.0,"natuur":4478.0,"binnenwater":1818.0,"buitenwater":4168.0,"totaal":39858.0,"land":33872.0,"m":"A","wonen":2131.0,"bedrijf_incl":670.0,"sociaal":171.0,"weg":1229.0,"spoor":106.0,"vliegveld":40.0,"glas":135.0,"agr_overig":23699.0,"bos":3041.0,"open_nat":1437.0},"1993":{"verkeer":1331.0,"bebouwd":3027.0,"semi":440.0,"recreatie":809.0,"agrarisch":23755.0,"natuur":4517.0,"binnenwater":2973.0,"buitenwater":4175.0,"totaal":41028.0,"land":33880.0,"m":"A","wonen":2168.0,"bedrijf_incl":698.0,"sociaal":161.0,"weg":1197.0,"spoor":101.0,"vliegveld":33.0,"glas":142.0,"agr_overig":23614.0,"bos":3108.0,"open_nat":1409.0},"1996":{"verkeer":1125.03,"bebouwd":3048.23,"semi":377.8,"recreatie":861.66,"agrarisch":23603.82,"natuur":4783.96,"binnenwater":3552.67,"buitenwater":4173.01,"totaal":41526.18,"weg":1008.42,"spoor":90.6,"vliegveld":26.01,"metro":null,"wonen":2137.7,"detail":44.38,"openbaar":114.84,"sociaal":151.53,"bedrijf":599.8,"stort":28.44,"wrak":5.13,"begraaf":38.9,"delfstof":30.69,"bouwterrein":217.36,"semiverhard":57.28,"zonnepark":null,"park":226.72,"stedelijkgroen":null,"sport":310.81,"volkstuin":40.62,"dagrecr":99.51,"verblijfrecr":184.01,"glas":138.87,"agr_overig":23464.94,"akker":null,"grasland":null,"bos":3440.79,"droog":835.71,"nat":507.46,"land":33800.5,"m":"B"},"2000":{"verkeer":1130.39,"bebouwd":3183.3,"semi":485.73,"recreatie":888.77,"agrarisch":23260.47,"natuur":4834.63,"binnenwater":3574.4,"buitenwater":4170.32,"totaal":41528.03,"weg":1016.22,"spoor":87.82,"vliegveld":26.36,"metro":null,"wonen":2211.41,"detail":45.92,"openbaar":114.86,"sociaal":151.67,"bedrijf":659.45,"stort":26.93,"wrak":5.26,"begraaf":39.91,"delfstof":31.87,"bouwterrein":327.13,"semiverhard":54.63,"zonnepark":null,"park":240.11,"stedelijkgroen":null,"sport":314.84,"volkstuin":39.97,"dagrecr":102.55,"verblijfrecr":191.31,"glas":149.81,"agr_overig":23110.66,"akker":null,"grasland":null,"bos":3501.28,"droog":832.57,"nat":500.79,"land":33783.31,"m":"B"},"2003":{"verkeer":1142.68,"bebouwd":3288.67,"semi":506.15,"recreatie":937.02,"agrarisch":23040.74,"natuur":4840.9,"binnenwater":3598.15,"buitenwater":4173.63,"totaal":41527.95,"weg":1036.26,"spoor":84.0,"vliegveld":22.42,"metro":null,"wonen":2238.91,"detail":62.49,"openbaar":121.93,"sociaal":154.48,"bedrijf":710.86,"stort":27.34,"wrak":5.37,"begraaf":41.16,"delfstof":31.12,"bouwterrein":348.9,"semiverhard":52.26,"zonnepark":null,"park":266.75,"stedelijkgroen":null,"sport":322.18,"volkstuin":39.08,"dagrecr":106.07,"verblijfrecr":202.93,"glas":156.6,"agr_overig":22884.14,"akker":null,"grasland":null,"bos":3463.74,"droog":835.87,"nat":541.29,"land":33756.17,"m":"B"},"2006":{"verkeer":1159.55,"bebouwd":3379.27,"semi":528.49,"recreatie":963.11,"agrarisch":22857.99,"natuur":4840.24,"binnenwater":3626.28,"buitenwater":4188.15,"totaal":41543.07,"weg":1049.94,"spoor":85.1,"vliegveld":24.51,"metro":null,"wonen":2278.1,"detail":70.59,"openbaar":118.74,"sociaal":156.36,"bedrijf":755.47,"stort":26.75,"wrak":5.42,"begraaf":41.56,"delfstof":31.21,"bouwterrein":376.25,"semiverhard":47.3,"zonnepark":null,"park":277.16,"stedelijkgroen":null,"sport":333.94,"volkstuin":39.06,"dagrecr":106.01,"verblijfrecr":206.94,"glas":162.41,"agr_overig":22695.58,"akker":null,"grasland":null,"bos":3447.0,"droog":849.91,"nat":543.32,"land":33728.64,"m":"B"},"2008":{"verkeer":1171.49,"bebouwd":3448.74,"semi":513.91,"recreatie":976.59,"agrarisch":22758.27,"natuur":4850.03,"binnenwater":3635.29,"buitenwater":4188.74,"totaal":41543.07,"weg":1061.15,"spoor":85.85,"vliegveld":24.49,"metro":null,"wonen":2301.03,"detail":90.16,"openbaar":117.62,"sociaal":154.35,"bedrijf":785.58,"stort":26.47,"wrak":5.8,"begraaf":41.92,"delfstof":28.69,"bouwterrein":367.95,"semiverhard":43.1,"zonnepark":null,"park":279.89,"stedelijkgroen":null,"sport":341.21,"volkstuin":38.39,"dagrecr":104.91,"verblijfrecr":212.18,"glas":167.91,"agr_overig":22590.37,"akker":null,"grasland":null,"bos":3447.92,"droog":855.3,"nat":546.81,"land":33719.04,"m":"B"},"2010":{"verkeer":1176.02,"bebouwd":3501.61,"semi":512.02,"recreatie":988.34,"agrarisch":22643.76,"natuur":4865.28,"binnenwater":3661.21,"buitenwater":4194.83,"totaal":41543.07,"weg":1066.07,"spoor":86.3,"vliegveld":23.65,"metro":null,"wonen":2313.75,"detail":104.12,"openbaar":117.34,"sociaal":152.83,"bedrijf":813.58,"stort":24.02,"wrak":5.4,"begraaf":42.92,"delfstof":31.55,"bouwterrein":368.96,"semiverhard":39.16,"zonnepark":null,"park":283.89,"stedelijkgroen":null,"sport":344.74,"volkstuin":37.62,"dagrecr":106.59,"verblijfrecr":215.51,"glas":166.22,"agr_overig":22477.54,"akker":null,"grasland":null,"bos":3453.8,"droog":877.58,"nat":533.9,"land":33687.03,"m":"B"},"2012":{"verkeer":1161.23,"bebouwd":3559.86,"semi":510.02,"recreatie":1025.61,"agrarisch":22522.33,"natuur":4900.88,"binnenwater":3679.82,"buitenwater":4183.25,"totaal":41543.02,"weg":1049.41,"spoor":88.82,"vliegveld":23.0,"metro":null,"wonen":2335.75,"detail":109.75,"openbaar":116.84,"sociaal":156.71,"bedrijf":840.81,"stort":22.05,"wrak":5.09,"begraaf":43.18,"delfstof":30.53,"bouwterrein":369.83,"semiverhard":39.34,"zonnepark":null,"park":295.47,"stedelijkgroen":null,"sport":353.21,"volkstuin":36.29,"dagrecr":116.65,"verblijfrecr":223.99,"glas":158.68,"agr_overig":22363.65,"akker":null,"grasland":null,"bos":3440.43,"droog":900.16,"nat":560.29,"land":33679.95,"m":"B"},"2015":{"verkeer":1155.63,"bebouwd":3615.26,"semi":493.18,"recreatie":1054.18,"agrarisch":22363.17,"natuur":4989.56,"binnenwater":3719.41,"buitenwater":4152.64,"totaal":41543.03,"weg":1044.02,"spoor":88.85,"vliegveld":22.76,"metro":null,"wonen":2358.39,"detail":114.37,"openbaar":118.23,"sociaal":160.93,"bedrijf":863.36,"stort":21.91,"wrak":4.75,"begraaf":43.84,"delfstof":33.54,"bouwterrein":349.49,"semiverhard":39.66,"zonnepark":null,"park":308.19,"stedelijkgroen":null,"sport":359.62,"volkstuin":36.06,"dagrecr":118.1,"verblijfrecr":232.22,"glas":155.11,"agr_overig":22208.06,"akker":null,"grasland":null,"bos":3412.7,"droog":950.55,"nat":626.31,"land":33670.979999999996,"m":"B"},"2017":{"verkeer":1151.08,"bebouwd":3701.4,"semi":392.21,"recreatie":1083.35,"agrarisch":22304.45,"natuur":5014.61,"binnenwater":3743.81,"buitenwater":4152.11,"totaal":41543.02,"weg":1038.36,"spoor":88.45,"vliegveld":24.26,"metro":null,"wonen":2414.08,"detail":120.28,"openbaar":120.57,"sociaal":164.63,"bedrijf":881.84,"stort":19.3,"wrak":4.29,"begraaf":45.4,"delfstof":31.47,"bouwterrein":250.46,"semiverhard":41.29,"zonnepark":null,"park":328.63,"stedelijkgroen":null,"sport":362.88,"volkstuin":36.08,"dagrecr":115.26,"verblijfrecr":240.51,"glas":157.66,"agr_overig":22146.8,"akker":null,"grasland":null,"bos":3406.46,"droog":937.8,"nat":670.35,"land":33647.1,"m":"B"},"2020":{"verkeer":1032.04,"bebouwd":3877.99,"semi":382.96,"recreatie":1209.45,"agrarisch":21638.71,"natuur":5502.17,"binnenwater":3743.87,"buitenwater":4156.17,"totaal":41543.37,"weg":916.6,"spoor":85.0,"vliegveld":26.66,"metro":3.78,"wonen":2547.93,"detail":127.85,"openbaar":116.01,"sociaal":154.01,"bedrijf":932.2,"stort":16.06,"wrak":null,"begraaf":51.05,"delfstof":31.83,"bouwterrein":226.33,"semiverhard":40.82,"zonnepark":16.87,"park":null,"stedelijkgroen":444.11,"sport":362.75,"volkstuin":38.02,"dagrecr":117.65,"verblijfrecr":246.92,"glas":129.01,"agr_overig":2818.66,"akker":9083.38,"grasland":9607.67,"bos":3358.95,"droog":1548.79,"nat":594.43,"land":33643.33,"m":"C"},"2022":{"verkeer":1035.68,"bebouwd":3925.57,"semi":373.68,"recreatie":1209.03,"agrarisch":21595.16,"natuur":5486.89,"binnenwater":3748.92,"buitenwater":4168.45,"totaal":41543.37,"weg":920.05,"spoor":84.94,"vliegveld":26.87,"metro":3.82,"wonen":2580.68,"detail":128.48,"openbaar":115.1,"sociaal":153.37,"bedrijf":947.93,"stort":15.24,"wrak":null,"begraaf":51.4,"delfstof":32.45,"bouwterrein":199.08,"semiverhard":40.73,"zonnepark":34.78,"park":null,"stedelijkgroen":441.68,"sport":363.07,"volkstuin":38.21,"dagrecr":117.45,"verblijfrecr":248.62,"glas":129.78,"agr_overig":2873.47,"akker":9101.1,"grasland":9490.8,"bos":3351.98,"droog":1538.49,"nat":596.42,"land":33626.0,"m":"C"}},"agri":{"years":[1985,1986,1987,1988,1989,1990,1991,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026],"s":{"cultuur":{"old":[20190.0,20130.0,20140.0,20120.0,20030.0,20060.0,19910.0,19860.0,19880.0,19710.0,19650.0,19820.0,19650.0,19730.0,19670.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,19755.0,19461.3,19640.7,19456.5,19494.0,19377.0,19197.0,19142.5,19292.2,19174.1,18723.2,18583.9,18417.0,18475.7,18390.2,18457.5,18158.7,18185.9,18223.7,18163.2,18144.5,18119.1,18043.7,18030.0,17985.0,17937.6,null]},"gras":{"old":[11640.0,11420.0,11240.0,11140.0,10990.0,10960.0,10800.0,10640.0,10640.0,10510.0,10480.0,10520.0,10300.0,10320.0,10180.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,12494.8,12245.3,12405.5,12354.1,12434.0,12417.1,12440.7,12441.6,12671.2,12651.3,12328.7,12245.5,12245.1,12189.8,12251.5,12404.1,12106.9,12068.4,12031.0,11815.5,11844.0,11808.0,11636.2,11530.2,11661.1,11476.9,11579.9]},"akker":{"old":[7260.0,7630.0,7870.0,7900.0,7960.0,7990.0,7970.0,8050.0,8020.0,7960.0,7960.0,8070.0,8090.0,8100.0,8020.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,6344.4,6314.2,6289.8,6159.9,6135.3,6040.5,5798.9,5732.1,5634.7,5540.8,5420.7,5350.4,5208.0,5324.1,5172.8,5056.7,5036.6,5091.5,5159.5,5319.3,5268.4,5257.5,5347.1,5474.2,5306.5,5445.3,5393.3]},"tuin_open":{"old":[1150.0,920.0,880.0,920.0,940.0,940.0,990.0,1010.0,1010.0,1010.0,990.0,980.0,1020.0,1050.0,1090.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,810.6,796.6,840.1,837.1,819.8,813.9,853.6,865.1,884.7,878.8,870.7,885.5,864.2,863.6,871.0,904.6,922.4,935.2,943.3,931.5,931.3,948.1,954.1,924.1,917.0,915.1,914.7]},"tuin_glas":{"old":[90.0,90.0,90.0,90.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,110.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,105.2,105.2,105.4,105.4,104.9,105.4,103.8,103.7,101.7,103.2,103.1,102.5,99.6,98.2,94.9,92.1,92.8,90.8,89.9,96.9,100.8,105.5,106.4,101.5,100.4,100.3,null]},"braak":{"old":[50.0,60.0,50.0,60.0,60.0,60.0,60.0,60.0,110.0,140.0,110.0,110.0,110.0,120.0,230.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]},"granen":{"old":[1840.0,1690.0,1760.0,1970.0,2040.0,1950.0,1780.0,1730.0,1730.0,1780.0,1850.0,1890.0,1890.0,1920.0,1680.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,2257.5,2366.6,2352.9,2277.1,2262.6,2232.9,2209.0,2225.3,2435.0,2288.0,2187.6,2138.3,2089.5,2102.2,1931.3,1968.2,1811.0,1640.8,1675.6,1797.8,1735.5,1734.0,1882.4,1875.1,1556.1,1652.7,1789.4]},"suikerbiet":{"old":[1310.0,1380.0,1280.0,1230.0,1240.0,1250.0,1230.0,1210.0,1170.0,1150.0,1160.0,1170.0,1140.0,1130.0,1200.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1109.5,1091.2,1088.9,1027.8,977.3,913.1,827.8,820.3,722.3,727.0,705.8,733.3,727.2,731.9,750.9,584.4,707.2,853.5,851.9,791.8,814.6,806.9,817.4,804.3,844.8,795.6,701.9]},"snijmais":{"old":[1770.0,1960.0,1970.0,1950.0,2030.0,2020.0,2020.0,2180.0,2290.0,2290.0,2250.0,2230.0,2320.0,2200.0,2310.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,2053.0,2038.6,2144.0,2169.0,2244.4,2350.9,2180.4,2215.5,2434.4,2419.7,2307.7,2296.4,2318.1,2302.9,2261.5,2242.1,2068.7,2052.5,2055.6,1874.0,1957.6,1861.2,1832.7,1805.9,1887.8,1831.9,1825.9]},"consaard":{"old":[1090.0,1070.0,1100.0,1040.0,1050.0,1120.0,1170.0,1230.0,1130.0,1110.0,1180.0,1220.0,1170.0,1240.0,1370.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,874.1,758.6,772.1,705.3,726.3,658.3,694.8,724.6,693.0,705.2,730.3,726.1,674.5,715.7,740.7,717.4,733.2,763.0,763.5,788.9,767.1,713.6,765.9,752.7,764.7,827.3,702.8]},"bollen":{"old":[151.0,156.0,164.0,164.0,167.0,163.0,166.0,167.0,168.0,171.0,181.0,186.0,196.0,214.0,227.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,225.1,226.2,242.2,245.4,235.2,229.9,235.1,236.6,243.3,235.6,233.5,241.3,234.9,232.9,235.9,248.4,260.5,266.8,275.6,272.2,269.9,272.6,280.4,281.1,273.6,273.1,285.2]},"zaaiuien":{"old":[130.0,110.0,110.0,100.0,80.0,90.0,100.0,100.0,100.0,110.0,120.0,120.0,110.0,130.0,140.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,139.9,142.1,149.2,163.8,198.9,167.8,184.9,201.5,203.0,195.3,222.2,233.0,209.9,219.8,223.5,238.9,250.8,266.8,253.6,275.8,272.7,301.2,274.2,291.1,320.3,329.6,326.2]},"bedrijven":{"old":[136000.0,134000.0,132000.0,130000.0,127000.0,125000.0,123000.0,121000.0,120000.0,116000.0,113000.0,111000.0,108000.0,104000.0,102000.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,97390.0,92650.0,89480.0,85410.0,83790.0,81750.0,79440.0,76740.0,75150.0,73010.0,72320.0,70390.0,68810.0,67480.0,65510.0,63910.0,55690.0,54850.0,53910.0,53230.0,52700.0,52110.0,50980.0,50630.0,49900.0,49080.0,48570.0]},"melkkoeien":{"old":[2367000.0,2288000.0,2100000.0,1971000.0,1913000.0,1878000.0,1852000.0,1775000.0,1747000.0,1698000.0,1708000.0,1665000.0,1591000.0,1442000.0,1588000.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1504080.0,1545820.0,1485370.0,1477650.0,1470480.0,1433200.0,1419720.0,1413170.0,1466130.0,1489070.0,1478640.0,1469720.0,1483990.0,1552920.0,1572290.0,1621770.0,1744830.0,1693800.0,1621910.0,1577960.0,1593070.0,1571340.0,1570670.0,1573790.0,1543210.0,1526840.0,1511940.0]},"rundvee":{"old":[5248000.0,5123000.0,4895000.0,4711000.0,4772000.0,4926000.0,5062000.0,4920000.0,4797000.0,4716000.0,4654000.0,4551000.0,4411000.0,4283000.0,4205000.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,4068710.0,4045350.0,3856590.0,3757170.0,3764820.0,3796780.0,3745090.0,3762780.0,3890200.0,3967600.0,3975190.0,3885350.0,3879250.0,3999220.0,4068330.0,4133850.0,4251460.0,4096120.0,3919200.0,3810250.0,3837990.0,3820580.0,3834170.0,3846390.0,3772470.0,3643800.0,null]},"varkens":{"old":[12383000.0,13481000.0,14349000.0,13934000.0,13729000.0,13915000.0,13217000.0,14161000.0,14964000.0,14565000.0,14397000.0,14419000.0,15189000.0,13446000.0,13567000.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,13117810.0,13072980.0,11647680.0,11169100.0,11152500.0,11311560.0,11355970.0,11662650.0,12026470.0,12186450.0,12254970.0,12429140.0,12233650.0,12212300.0,12238120.0,12602890.0,12478590.0,12400700.0,12430130.0,12269150.0,11950240.0,11456830.0,11278860.0,10826000.0,10491170.0,9765590.0,9245270.0]},"kippen":{"old":[89887000.0,92305000.0,96827000.0,93138000.0,89778000.0,92765000.0,93596000.0,99361000.0,95919000.0,91902000.0,89561000.0,91441000.0,93106000.0,98692000.0,104767000.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"new":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,104014700.0,100333700.0,101051900.0,79234900.0,85816100.0,92914200.0,91782300.0,92760900.0,96700200.0,96859500.0,101247700.0,96918600.0,95273300.0,97719300.0,103038500.0,106762900.0,105619600.0,105184400.0,105104400.0,101741200.0,101863100.0,99887500.0,97532800.0,93003600.0,89231300.0,87721700.0,null]}},"akk":{"Aardappelen":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1801.6,1638.8,1651.6,1586.2,1638.6,1557.8,1565.0,1571.7,1518.7,1552.3,1582.7,1596.9,1499.3,1558.2,1562.5,1565.1,1579.0,1626.7,1649.7,1675.2,1656.2,1603.0,1630.6,1577.3,1547.1,1637.4,1501.0],"Granen":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,2257.5,2366.6,2352.9,2277.1,2262.6,2232.9,2209.0,2225.3,2435.0,2288.0,2187.6,2138.3,2089.5,2102.2,1931.3,1968.2,1811.0,1640.8,1675.6,1797.8,1735.5,1734.0,1882.4,1875.1,1556.1,1652.7,1789.4],"Suikerbieten":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1109.5,1091.2,1088.9,1027.8,977.3,913.1,827.8,820.3,722.3,727.0,705.8,733.3,727.2,731.9,750.9,584.4,707.2,853.5,851.9,791.8,814.6,806.9,817.4,804.3,844.8,795.6,701.9],"Akkerbouwgroenten (incl. uien)":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,459.9,460.8,485.5,511.2,513.6,470.4,520.1,540.3,530.9,516.5,516.6,548.8,517.5,543.1,549.9,561.7,583.4,604.7,605.3,644.4,638.1,689.0,619.1,653.1,702.7,693.2,674.2],"Handelsgewassen":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,115.1,122.5,117.3,126.2,117.5,120.3,115.5,108.7,104.7,115.8,118.2,95.3,94.9,116.8,115.8,127.8,123.0,124.0,122.2,126.3,122.8,114.5,111.1,114.2,134.1,138.2,156.6],"Braak":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,244.8,297.0,303.6,292.9,253.0,348.9,205.4,169.8,75.3,73.6,72.8,72.4,79.4,81.8,77.2,73.3,73.7,70.5,83.7,79.5,88.6,88.3,78.0,121.8,332.7,326.5,372.2],"Graszaden, peulvruchten, overige":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,356.1,337.3,289.8,338.3,372.5,397.1,356.1,296.0,247.8,267.6,236.9,165.4,200.3,190.0,185.1,176.1,159.4,171.2,171.0,204.3,212.6,221.8,208.4,328.3,189.0,201.6,198.1]},"gras":{"Blijvend grasland":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,9000.2,8751.5,8881.5,7858.0,7566.9,7705.8,7946.5,7943.0,7915.6,7848.2,7687.5,7663.9,7461.7,7220.9,7058.2,7143.4,6912.2,6802.5,6837.4,6909.2,6944.4,6892.6,6800.0,6684.7,6709.4,6591.2,6478.6],"Natuurlijk grasland":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,266.6,255.3,230.6,310.5,341.1,243.2,224.8,264.1,362.5,424.2,445.7,495.6,486.9,510.1,519.8,516.9,582.7,637.2,800.4,766.2,779.7,817.2,829.8,896.1,894.6,895.9,910.1],"Tijdelijk grasland":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1100.0,1120.8,1079.0,1946.0,2213.1,2050.8,2021.1,1956.8,1905.9,1898.7,1820.2,1723.1,1916.6,2098.5,2356.7,2419.6,2452.7,2475.8,2232.8,2158.6,2051.3,2125.9,2065.8,1996.9,2017.4,2017.1,2243.2],"Snijmaïs":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,2053.0,2038.6,2144.0,2169.0,2244.4,2350.9,2180.4,2215.5,2434.4,2419.7,2307.7,2296.4,2318.1,2302.9,2261.5,2242.1,2068.7,2052.5,2055.6,1874.0,1957.6,1861.2,1832.7,1805.9,1887.8,1831.9,1825.9],"Overige groenvoedergewassen":[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,75.1,79.1,67.1,69.0,66.2,64.1,68.0,62.3,52.7,60.4,67.6,66.5,61.8,57.4,55.4,82.0,90.7,100.4,104.9,107.4,111.1,111.0,107.7,146.7,151.9,140.8,122.1]},"status":{"2000":"Definitief","2001":"Definitief","2002":"Definitief","2003":"Definitief","2004":"Definitief","2005":"Definitief","2006":"Definitief","2007":"Definitief","2008":"Definitief","2009":"Definitief","2010":"Definitief","2011":"Definitief","2012":"Definitief","2013":"Definitief","2014":"Definitief","2015":"Definitief","2016":"Definitief","2017":"Definitief","2018":"Definitief","2019":"Definitief","2020":"Definitief","2021":"Definitief","2022":"Definitief","2023":"Definitief","2024":"Definitief","2025":"Definitief","2026":"Voorlopig"}},"den_years":[1985,1986,1987,1988,1989,1990,1991,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026],"pop":[14453833.0,14529430.0,14615125.0,14714948.0,14805240.0,14892574.0,15010445.0,15129150.0,15239182.0,15341553.0,15424122.0,15493889.0,15567107.0,15654192.0,15760225.0,15863950.0,15987075.0,16105285.0,16192572.0,16258032.0,16305526.0,16334210.0,16357992.0,16405399.0,16485787.0,16574989.0,16655799.0,16730348.0,16779575.0,16829289.0,16900726.0,16979120.0,17081507.0,17181084.0,17282163.0,17407585.0,17475415.0,17590672.0,17811291.0,17942942.0,18044027.0,18130208.0],"hh":[5613000.0,5711000.0,5814000.0,5837000.0,5938000.0,6061000.0,6164000.0,6266000.0,6368000.0,6445000.0,6469000.0,6518000.0,6581000.0,6656000.0,6745000.0,6801000.0,6867000.0,6934000.0,6996000.0,7049000.0,7091000.0,7146000.0,7191000.0,7242000.0,7313000.0,7386000.0,7444000.0,7513000.0,7569000.0,7590000.0,7665000.0,7721000.0,7794000.0,7858000.0,7925000.0,7998000.0,8043000.0,8139000.0,8270000.0,8374000.0,8430000.0,8475000.0],"won":[5319000.0,5416000.0,5518000.0,5627000.0,5741000.0,5847000.0,5940000.0,6017000.0,6097000.0,6174000.0,6253000.0,6341000.0,6426000.0,6513000.0,6598000.0,6669000.0,6734000.0,6796000.0,6854000.0,6903000.0,6956000.0,7013000.0,7072000.0,7137000.0,7218000.0,7290000.0,7339000.0,7387000.0,7449000.0,7535000.0,7588000.0,7641000.0,7686000.0,7741000.0,7815000.0,7892000.0,7966000.0,8046000.0,8125000.0,8204000.0,8275000.0,null]}</script>
+<script>
+(function(){
+const D=JSON.parse(document.getElementById('data').textContent);
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const nf=(v,d)=>v==null||isNaN(v)?'–':v.toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d});
+const BY=Object.keys(D.bbg).map(Number).sort((a,b)=>a-b);
+const AY=D.agri.years, NY=D.den_years;
+const den=(k,y)=>{const i=NY.indexOf(y);return i<0?null:D[k][i];};
+const ALLY=[...new Set([...BY,...AY])].sort((a,b)=>a-b);
+for(const y of ALLY){$('y0').add(new Option(y,y));$('y1').add(new Option(y,y));}
+$('y0').value=1985;$('y1').value=2026;
+const GROUPS={
+ 'Bebouwd terrein':[['wonen','Woonterrein'],['bedrijf','Bedrijventerrein'],['detail','Detailhandel en horeca'],['openbaar','Openbare voorzieningen'],['sociaal','Sociaal-culturele voorzieningen'],'bebouwd'],
+ 'Verkeersterrein':[['weg','Wegverkeersterrein / hoofdweg'],['spoor','Spoorterrein'],['vliegveld','Vliegveld'],['metro','Metro en sneltram'],'verkeer'],
+ 'Semi-bebouwd terrein':[['bouwterrein','Bouwterrein'],['begraaf','Begraafplaats'],['delfstof','Delfstofwinplaats'],['stort','Stortplaats'],['semiverhard','Semi-verhard overig'],['zonnepark','Zonnepark'],['wrak','Wrakkenopslag'],'semi'],
+ 'Recreatieterrein':[['park','Park en plantsoen'],['stedelijkgroen','Stedelijk groen'],['sport','Sportterrein'],['verblijfrecr','Verblijfsrecreatie'],['dagrecr','Dagrecreatie'],['volkstuin','Volkstuin'],'recreatie'],
+ 'Agrarisch terrein':[['glas','Glastuinbouw'],['agr_overig','Overig agrarisch'],['akker','Akker en meerjarige teelt'],['grasland','Agrarisch grasland'],'agrarisch'],
+ 'Bos en natuur':[['bos','Bos'],['droog','Open droog natuurlijk'],['nat','Open nat natuurlijk'],'natuur']};
+for(const g of Object.keys(GROUPS))$('dgroup').add(new Option(g,g));
+try{const s=JSON.parse(localStorage.getItem('land-ui')||'{}');for(const[k,v]of Object.entries(s)){const el=$(k);if(!el)continue;if(el.type==='checkbox')el.checked=v;else el.value=v;}}catch(e){}
+function save(){try{const s={};document.querySelectorAll('select,input[type=checkbox]').forEach(el=>{if(el.id)s[el.id]=el.type==='checkbox'?el.checked:el.value});localStorage.setItem('land-ui',JSON.stringify(s));}catch(e){}}
+const rng=()=>{let a=+$('y0').value,b=+$('y1').value;if(a>b)[a,b]=[b,a];return[a,b];};
+const inR=y=>{const[a,b]=rng();return y>=a&&y<=b;};
+const UL={abs:'km²',pct:'% van getoond totaal',inw:'m² per inwoner',hh:'m² per huishouden',idx:'index, eerste jaar = 100'};
+const UD={abs:0,pct:1,inw:0,hh:0,idx:0};
+
+/* series: [{t,c,pts:[{x,y}]}] in km2 -> transformed */
+function transform(series,u,stacked){
+  if(u==='abs')return series;
+  if(u==='inw'||u==='hh'){const k=u==='inw'?'pop':'hh';return series.map(s=>({...s,pts:s.pts.map(p=>{const d=den(k,p.x);return{x:p.x,y:p.y==null||!d?null:p.y*1e6/d};})}));}
+  if(u==='idx')return series.map(s=>{const b=s.pts.find(p=>p.y!=null);return{...s,pts:s.pts.map(p=>({x:p.x,y:p.y==null||!b||!b.y?null:p.y/b.y*100}))};});
+  if(u==='pct'){if(!stacked)return series;const xs=[...new Set(series.flatMap(s=>s.pts.map(p=>p.x)))];const tot={};for(const x of xs)tot[x]=series.reduce((a,s)=>a+((s.pts.find(p=>p.x===x)||{}).y||0),0);
+    return series.map(s=>({...s,pts:s.pts.map(p=>({x:p.x,y:p.y==null||!tot[p.x]?null:p.y/tot[p.x]*100}))}));}
+  return series;
+}
+const charts={};
+function alpha(hex,a){const h=hex.replace('#','');const n=parseInt(h.length===3?h.split('').map(x=>x+x).join(''):h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+const breaks={id:'breaks',beforeDatasetsDraw(ch,_,o){const xs=ch.scales.x,ya=ch.scales.y;if(!xs||!ya)return;const ctx=ch.ctx;ctx.save();
+  for(const p of (o.prov||[])){if(p<xs.min||p>xs.max)continue;const x=xs.getPixelForValue(p);const w=Math.max(6,xs.getPixelForValue(p+.5)-xs.getPixelForValue(p-.5));ctx.fillStyle=css('--prov');ctx.fillRect(x-w/2,ya.top,w,ya.bottom-ya.top);}
+  ctx.font='11px '+css('--f-data');ctx.fillStyle=css('--muted');ctx.strokeStyle=css('--faint');ctx.setLineDash([3,3]);ctx.lineWidth=1;
+  for(const b of (o.lines||[])){if(b.x<=xs.min||b.x>=xs.max)continue;const x=xs.getPixelForValue(b.x);ctx.beginPath();ctx.moveTo(x,ya.top);ctx.lineTo(x,ya.bottom);ctx.stroke();ctx.fillText(b.t,x+4,ya.top+11);}
+  ctx.restore();}};
+Chart.register(breaks);
+function draw(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg);const tb=$('t-'+id);if(tb&&!tb.hidden)table(id);}
+function chart(id,series,o={}){
+  let u=o.unit||$('unit').value;const stacked=o.stacked!==false&&u!=='idx';if(u==='pct'&&!stacked)u='abs';
+  const [a,b]=rng();
+  let ser=series.map(s=>({...s,pts:s.pts.filter(p=>p.x>=a&&p.x<=b)}));
+  ser=transform(ser,u,stacked);
+  const lab=o.ylab||UL[u],dec=o.dec??UD[u];
+  const ink=css('--ink'),mut=css('--muted'),line=css('--line');
+  const ds=ser.map((s,n)=>{const col=s.c.startsWith('--')?css(s.c):s.c;return{label:s.t,data:s.pts,borderColor:s.total?ink:col,backgroundColor:s.total?ink:(stacked?alpha(col,.78):col),
+    borderWidth:s.total?1.5:(stacked?1:2),borderDash:s.total?[5,4]:undefined,pointRadius:o.points?3:(stacked?0:2),pointHoverRadius:4,
+    fill:s.total?false:(stacked?(n===0?'origin':'-1'):false),stack:s.total?'tot':'s',spanGaps:o.span??true,tension:0,isTotal:!!s.total,order:s.total?-1:0};});
+  const opts={responsive:true,maintainAspectRatio:false,animation:false,parsing:true,
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{position:'bottom',labels:{color:ink,boxWidth:10,boxHeight:10,font:{family:css('--f-body'),size:12.5}}},
+      tooltip:{backgroundColor:css('--surface'),titleColor:ink,bodyColor:ink,borderColor:line,borderWidth:1,padding:10,titleFont:{family:css('--f-data')},bodyFont:{family:css('--f-data'),size:12},
+        callbacks:{title:i=>String(i[0].parsed.x),label:c=>` ${c.dataset.label}: ${nf(c.parsed.y,dec)}`,
+          footer:items=>{const p=items.filter(i=>!i.dataset.isTotal);return stacked&&p.length>1?'Som: '+nf(p.reduce((s,i)=>s+(i.parsed.y||0),0),dec):'';}}},
+      breaks:{lines:o.lines||[],prov:o.prov||[]}},
+    scales:{x:{type:'linear',min:Math.max(a,o.xmin??a),max:b,grid:{display:false},border:{color:line},ticks:{color:mut,stepSize:5,precision:0,callback:v=>String(v),font:{family:css('--f-data'),size:11},maxRotation:0}},
+      y:{stacked,beginAtZero:o.zero!==false,grid:{color:line},border:{display:false},ticks:{color:mut,font:{family:css('--f-data'),size:11},callback:v=>nf(v,dec>1?1:0)},
+        title:{display:true,text:lab,color:mut,font:{family:css('--f-data'),size:11}}}}};
+  // index & matching on x for tooltips across datasets with different x arrays
+  opts.interaction={mode:'x',intersect:false};
+  draw(id,{type:'line',data:{datasets:ds},options:opts});
+}
+function table(id){const ch=charts[id],el=$('t-'+id);if(!ch)return;const ds=ch.data.datasets;
+  const xs=[...new Set(ds.flatMap(d=>d.data.map(p=>p.x)))].sort((a,b)=>a-b);
+  let h='<table><thead><tr><th>Jaar</th>'+ds.map(d=>`<th>${d.label}</th>`).join('')+'</tr></thead><tbody>';
+  for(const x of xs)h+=`<tr><td>${x}</td>`+ds.map(d=>{const p=d.data.find(q=>q.x===x);return`<td>${nf(p?p.y:null,2)}</td>`;}).join('')+'</tr>';
+  el.innerHTML=h+'</tbody></table>';}
+document.querySelectorAll('button[data-tbl]').forEach(b=>{const base=b.textContent;b.addEventListener('click',()=>{const id=b.dataset.tbl,el=$('t-'+id);el.hidden=!el.hidden;b.textContent=el.hidden?base:'Tabel verbergen';if(!el.hidden)table(id);});});
+
+const BL=[{x:1994.5,t:'1996: nieuwe BBG-methode'},{x:2018.5,t:'2020: herziene methode'}];
+const AL=[{x:1999.5,t:'2000: nieuwe indeling'}];
+const AP=Object.entries(D.agri.status).filter(([y,s])=>s!=='Definitief').map(([y])=>+y);
+const bpts=k=>BY.map(y=>({x:y,y:D.bbg[y][k]??null}));
+const apts=(arr)=>AY.map((y,i)=>({x:y,y:arr[i]}));
+const comb=k=>AY.map((y,i)=>({x:y,y:D.agri.s[k].old[i]??D.agri.s[k].new[i]??null}));
+
+function kpis(){
+  const r22=D.bbg[2022],r96=D.bbg[1996],r17=D.bbg[2017],r85=D.bbg[1985];
+  const urb=r=>r.bebouwd+r.verkeer+r.semi;
+  const pinw=(r,y)=>r.bebouwd*1e6/den('pop',y);
+  const ai=AY.indexOf(2025),a85=AY.indexOf(1985);
+  $('kpis').innerHTML=[
+   ['Landoppervlak 2022',nf(r22.land,0),'km²',`Plus ${nf(r22.binnenwater+r22.buitenwater,0)} km² water`],
+   ['Agrarisch terrein 2022',nf(r22.agrarisch/r22.land*100,0),'%',`van het land; bos en natuur ${nf(r22.natuur/r22.land*100,0)}%`],
+   ['Bebouwd terrein, 1996 → 2017',`+${nf((r17.bebouwd/r96.bebouwd-1)*100,0)}`,'%',`zelfde methode; per inwoner ${nf(pinw(r96,1996),0)} → ${nf(pinw(r17,2017),0)} m²`],
+   ['Landbouwbedrijven 1985 → 2025',nf(D.agri.s.bedrijven.new[ai],0),'',`was ${nf(D.agri.s.bedrijven.old[a85],0)}; cultuurgrond ${nf(D.agri.s.cultuur.new[ai],0)} km²`]
+  ].map(k=>`<div class="kpi"><span class="lbl">${k[0]}</span><span class="v">${k[1]}<small>${k[2]}</small></span><span class="d">${k[3]}</span></div>`).join('');
+}
+function rHoofd(){
+  const S=[['Bebouwd terrein','--s1','bebouwd'],['Verkeersterrein','--s2','verkeer'],['Semi-bebouwd terrein','--s4','semi'],['Recreatieterrein','--s5','recreatie'],['Agrarisch terrein','--s6','agrarisch'],['Bos en open natuurlijk terrein','--s3','natuur']];
+  const ser=S.map(([t,c,k])=>({t,c,pts:bpts(k)}));
+  if($('wBin').checked)ser.push({t:'Binnenwater',c:'--s7',pts:bpts('binnenwater')});
+  if($('wBuit').checked)ser.push({t:'Buitenwater',c:'--n2',pts:bpts('buitenwater')});
+  chart('c-hoofd',ser,{lines:BL,points:true});
+}
+function rDetail(){
+  const g=GROUPS[$('dgroup').value],tot=g[g.length-1],kids=g.slice(0,-1);
+  const pal=['--s1','--s2','--s3','--s4','--s5','--s6','--s7'];
+  const yrs=BY.filter(y=>y>=1996);
+  const ser=kids.map(([k,t],n)=>({t,c:pal[n],pts:yrs.map(y=>({x:y,y:D.bbg[y][k]??null}))})).filter(s=>s.pts.some(p=>p.y));
+  ser.push({t:'Totaal groep',c:'--ink',total:true,pts:yrs.map(y=>({x:y,y:D.bbg[y][tot]}))});
+  chart('c-detail',ser,{lines:BL.slice(1),points:true,span:false,xmin:1996});
+}
+function rRatio(){
+  const yrs=BY;
+  const pr=(k,dk,f)=>yrs.map(y=>{const d=den(dk,y);const v=D.bbg[y][k];return{x:y,y:v==null||!d?null:v*f/d};});
+  chart('c-perinw',[{t:'Bebouwd terrein',c:'--s1',pts:pr('bebouwd','pop',1e6)},{t:'Verkeersterrein',c:'--s2',pts:pr('verkeer','pop',1e6)},{t:'Recreatieterrein',c:'--s5',pts:pr('recreatie','pop',1e6)}],{unit:'abs',stacked:false,ylab:'m² per inwoner',dec:0,lines:BL,points:true});
+  chart('c-perwon',[{t:'Woonterrein per woning',c:'--s1',pts:pr('wonen','won',1e6)}],{unit:'abs',stacked:false,ylab:'m² per woning',dec:0,lines:BL,points:true,zero:false});
+}
+function rAgri(){
+  const ser=[
+    {t:'Grasland (vanaf 2000 incl. groenvoeder)',c:'--s6',pts:comb('gras')},
+    {t:'Akkerbouw (t/m 1999 incl. groenvoeder)',c:'--s4',pts:comb('akker')},
+    {t:'Tuinbouw open grond',c:'--s5',pts:comb('tuin_open')},
+    {t:'Tuinbouw onder glas',c:'--s1',pts:comb('tuin_glas')},
+    {t:'Braak (t/m 1999 apart)',c:'--n2',pts:comb('braak')}];
+  chart('c-agri',ser,{lines:AL,prov:AP,span:false});
+  const pal=['--s1','--s2','--s3','--s4','--s5','--n2','--s7'];
+  chart('c-akk',Object.entries(D.agri.akk).map(([t,a],n)=>({t,c:pal[n],pts:apts(a).filter(p=>p.x>=2000)})),{prov:AP,xmin:2000});
+  const pg=['--s6','--s3','--s1','--s4','--s7'];
+  chart('c-gras',Object.entries(D.agri.gras).map(([t,a],n)=>({t,c:pg[n],pts:apts(a).filter(p=>p.x>=2000)})),{prov:AP,xmin:2000});
+  const G=[['Granen','--s1','granen'],['Snijmaïs','--s2','snijmais'],['Consumptieaardappelen','--s3','consaard'],['Suikerbieten','--s4','suikerbiet'],['Bloembollen en -knollen','--s5','bollen'],['Zaaiuien','--s7','zaaiuien']];
+  chart('c-gewas',G.map(([t,c,k])=>({t,c,pts:comb(k)})),{stacked:false,lines:AL,prov:AP,span:false});
+}
+function rBedr(){
+  const bed=comb('bedrijven'),cul=comb('cultuur');
+  chart('c-schaal',[{t:'Hectare per bedrijf',c:'--s6',pts:bed.map((p,i)=>({x:p.x,y:p.y&&cul[i].y!=null?cul[i].y*100/p.y:null}))}],{unit:'abs',stacked:false,ylab:'ha per bedrijf',dec:1,lines:AL,prov:AP,span:false});
+  chart('c-vee',[['Rundvee','--s1','rundvee'],['waarvan melk- en kalfkoeien','--s3','melkkoeien'],['Varkens','--s2','varkens'],['Kippen','--s4','kippen'],['Landbouwbedrijven','--s7','bedrijven']].map(([t,c,k])=>({t,c,pts:comb(k)})),{unit:'idx',stacked:false,lines:AL,prov:AP,span:false});
+}
+function all(){kpis();rHoofd();rDetail();rRatio();rAgri();rBedr();}
+document.querySelectorAll('select,input[type=checkbox]').forEach(el=>el.addEventListener('change',()=>{save();all();}));
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',all);}catch(e){}
+new MutationObserver(all).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(all);
+all();
+})();
+</script>
+
+</body>
+</html>
